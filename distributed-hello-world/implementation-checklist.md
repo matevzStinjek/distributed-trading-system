@@ -2,10 +2,10 @@
 
 ## Stage 1: HTTP to Kafka Flow
 
-- [ ] Set up Go service with basic HTTP endpoint
-- [ ] Add Kafka producer to Go service
-- [ ] Send message to Kafka when HTTP endpoint is hit
-- [ ] Verify message appears in Kafka topic (using akhq)
+- [x] Set up Go service with basic HTTP endpoint
+- [x] Add Kafka producer to Go service
+- [x] Send message to Kafka when HTTP endpoint is hit
+- [x] Verify message appears in Kafka topic (using akhq)
 
 Testing this stage:
 
@@ -21,7 +21,7 @@ Testing this stage:
 
 Testing this stage:
 
-1. Use kafka-console-producer to send message
+1. Use OffsetOldest to read all messages and publish to redis
 2. Use redisinsight to verify message appears in channel
 
 ## Stage 3: Complete Flow with Elixir
