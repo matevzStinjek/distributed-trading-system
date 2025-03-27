@@ -11,11 +11,14 @@ services:
       - "13000:8080" # External:Internal
     environment:
       - KAFKA_BROKERS=kafka:29092 # Internal Kafka address
+      - KAFKA_CONSUMER_GROUP=group-1
       - REDIS_HOST=redis
       - REDIS_PORT=6379 # Internal Redis port
     depends_on:
-      - kafka
-      - redis
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   elixir-service:
     build:
@@ -34,6 +37,16 @@ services:
     image: confluentinc/cp-kafka:latest
     ports:
       - "19092:9092" # External access for local tools
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server kafka:29092 --list >/dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s # KRaft mode needs more startup time
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
