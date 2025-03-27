@@ -14,7 +14,7 @@ Testing this stage:
 
 ## Stage 2: Kafka to Redis Flow
 
-- [ ] Add Kafka consumer to Go service
+- [x] Add Kafka consumer to Go service
 - [ ] Add Redis client and implement publish
 - [ ] Connect consumer to publisher
 - [ ] Verify flow using redisinsight to subscribe
