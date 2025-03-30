@@ -12,8 +12,7 @@ services:
     environment:
       - KAFKA_BROKERS=kafka:29092 # Internal Kafka address
       - KAFKA_CONSUMER_GROUP=group-1
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379 # Internal Redis port
+      - REDIS_ADDR=redis:6379
     depends_on:
       kafka:
         condition: service_healthy

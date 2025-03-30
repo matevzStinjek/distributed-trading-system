@@ -7,13 +7,16 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
-	TOPIC = "my-topic-1"
+	TOPIC   = "my-topic-1"
+	CHANNEL = "my-channel-1"
 )
 
 type Message struct {
@@ -129,6 +132,7 @@ func (c *KafkaConsumer) Stop() error {
 }
 
 type MessageHandler struct {
+	rp *RedisPublisher
 }
 
 func (h *MessageHandler) Setup(_ sarama.ConsumerGroupSession) error { return nil }
@@ -145,12 +149,22 @@ func (h *MessageHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim
 
 		log.Printf("Message received: user=%s content=%s", msg.UserID, msg.Content)
 
+		ctx, cancel := context.WithTimeout(session.Context(), 2*time.Second)
+
+		err := h.rp.Publish(ctx, msg)
+
+		cancel()
+		if err != nil {
+			log.Printf("Failed to publish to Redis: %v", err)
+			continue
+		}
+
 		session.MarkMessage(message, "")
 	}
 	return nil
 }
 
-func NewKafkaConsumer(brokers []string, groupId string, topics []string) (*KafkaConsumer, error) {
+func NewKafkaConsumer(brokers []string, groupId string, topics []string, rp *RedisPublisher) (*KafkaConsumer, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
@@ -163,17 +177,56 @@ func NewKafkaConsumer(brokers []string, groupId string, topics []string) (*Kafka
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &KafkaConsumer{
-		group:   group,
-		topics:  topics,
-		handler: MessageHandler{},
-		ctx:     ctx,
-		cancel:  cancel,
+		group:  group,
+		topics: topics,
+		handler: MessageHandler{
+			rp: rp,
+		},
+		ctx:    ctx,
+		cancel: cancel,
+	}, nil
+}
+
+type RedisPublisher struct {
+	client *redis.Client
+}
+
+func (p *RedisPublisher) Publish(ctx context.Context, msg Message) error {
+	bytes, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return p.client.Publish(ctx, CHANNEL, bytes).Err()
+}
+
+func (p *RedisPublisher) Close() error {
+	return p.client.Close()
+}
+
+func NewRedisClient(addr string) (*RedisPublisher, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Username: "default",
+		Password: "",
+	})
+
+	// Test the connection with a background context
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, err
+	}
+
+	return &RedisPublisher{
+		client: client,
 	}, nil
 }
 
 func main() {
 	KAFKA_BROKERS := os.Getenv("KAFKA_BROKERS")
 	KAFKA_CONSUMER_GROUP := os.Getenv("KAFKA_CONSUMER_GROUP")
+	REDIS_ADDR := os.Getenv("REDIS_ADDR")
 
 	// producer
 	kafkaProducer, err := NewKafkaProducer([]string{KAFKA_BROKERS})
@@ -184,7 +237,14 @@ func main() {
 	producerService := NewProducerService(kafkaProducer)
 
 	// consumer
-	kafkaConsumer, err := NewKafkaConsumer([]string{KAFKA_BROKERS}, KAFKA_CONSUMER_GROUP, []string{TOPIC})
+	rp, err := NewRedisClient(REDIS_ADDR)
+	if err != nil {
+		log.Printf("Failed to create Redis publisher: %s", err)
+		return
+	}
+	defer rp.Close()
+
+	kafkaConsumer, err := NewKafkaConsumer([]string{KAFKA_BROKERS}, KAFKA_CONSUMER_GROUP, []string{TOPIC}, rp)
 	if err != nil {
 		log.Fatalf("Failed to create a producer: %s", err)
 		return
