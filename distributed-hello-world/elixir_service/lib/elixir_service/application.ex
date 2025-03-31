@@ -1,20 +1,20 @@
+# lib/your_app/application.ex
 defmodule ElixirService.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
-  @moduledoc false
-
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: ElixirService.Worker.start_link(arg)
-      # {ElixirService.Worker, arg}
-      ElixirService
+      # ElixirService,
+      # Start the Redis subscriber
+      ElixirService.RedisSubscriber
+
+      # Your other supervisors/workers here
+      # {Phoenix.PubSub, name: YourApp.PubSub},
+      # YourApp.Endpoint
     ]
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ElixirService.Supervisor]
     Supervisor.start_link(children, opts)
   end

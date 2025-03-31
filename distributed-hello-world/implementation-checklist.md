@@ -26,10 +26,10 @@ Testing this stage:
 
 ## Stage 3: Complete Flow with Elixir
 
-- [ ] Create basic Elixir service
-- [ ] Add Redis subscription to Elixir
-- [ ] Verify end-to-end flow
-- [ ] Add basic logging in both services
+- [x] Create basic Elixir service
+- [x] Add Redis subscription to Elixir
+- [x] Verify end-to-end flow
+- [x] Add basic logging in both services
 
 Testing this stage:
 
