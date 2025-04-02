@@ -1,90 +1,92 @@
 ```mermaid
-flowchart TB
-    subgraph External[External Systems]
-        Client([Client Apps])
-        MarketFeed([Market Data Feed])
+graph TD
+    subgraph "External Actors"
+        User(User Client)
+        WSUser(User via WebSocket)
+        ExtFeed(External Market Feed Source)
     end
 
-    subgraph Gateway[API Layer]
-        APIGW[AWS API Gateway]
-        WSGateway[WebSocket Gateway]
+    subgraph "Ingestion"
+        IngestionSvc["Market Data Ingestion Service (Go)"]
     end
 
-    subgraph Services[Core Services]
-        direction TB
-        OrderSvc[Order Service<br/>Go]
-        PortfolioSvc[Portfolio Service<br/>Go]
-        QuerySvc[Query Service<br/>Go]
-        MarketSvc[Market Data Service<br/>Elixir]
+    subgraph "API & Realtime Layer"
+        APIGW(AWS API Gateway)
+        MarketSvc["Market Data Service (Elixir)"]
     end
 
-    subgraph Processing[Stream Processing]
-        direction LR
-        FlinkExec[Trade Execution<br/>Flink]
-        FlinkPersist[Trade Persistence<br/>Flink]
+    subgraph "Backend Services (Go)"
+        OrderSvc["Order Service (Go)"]
+        PortfolioSvc["Portfolio Service (Go)"]
+        QuerySvc["Query Service (Go)"]
     end
 
-    subgraph EventBus[Event Bus]
-        direction LR
-        KafkaMarket[market_data<br/>Kafka Topic]
-        KafkaOrders[trade_orders<br/>Kafka Topic]
-        KafkaExec[trade_executed<br/>Kafka Topic]
+    subgraph "Event Bus (Kafka)"
+        Kafka(Kafka Broker)
+        TopicMarket[market_data Topic]
+        TopicOrders[trade_orders Topic]
+        TopicExecuted[trade_executed Topic]
     end
 
-    subgraph DataStores[Data Stores]
-        Redis[(Redis<br/>Price Cache &<br/>Pub/Sub)]
-        DynamoDB[(DynamoDB<br/>Portfolios)]
-        ES[(Elasticsearch<br/>Trade History)]
-        CH[(Clickhouse<br/>Analytics)]
+    subgraph "Stream Processing (Flink)"
+        FlinkExec["Trade Execution Job (Flink - Java)"]
+        FlinkPersist["Persistence Job (Single Flink Job - Java)"]
     end
 
-    %% External to Gateway
-    Client --> APIGW
-    Client --> WSGateway
-    MarketFeed --> KafkaMarket
+    subgraph "Data Stores"
+        DynamoDB[(DynamoDB - Portfolios)]
+        Redis[(Redis - Cache & Pub/Sub)]
+        Elasticsearch[(Elasticsearch - History)]
+        Clickhouse[(Clickhouse - Analytics)]
+    end
 
-    %% Gateway to Services
-    APIGW --> OrderSvc
-    APIGW --> PortfolioSvc
-    APIGW --> QuerySvc
-    WSGateway --> MarketSvc
+    %% Data Flows %%
 
-    %% Market Data Flow
-    KafkaMarket --> MarketSvc
-    MarketSvc --> Redis
-    MarketSvc --> WSGateway
+    %% Ingestion Flow
+    ExtFeed -- Market Data Stream (e.g., WebSocket) --> IngestionSvc
+    IngestionSvc -- Publishes Price Updates --> Kafka -- Writes --> TopicMarket
 
-    %% Order Flow
-    OrderSvc --> Redis
-    OrderSvc --> DynamoDB
-    OrderSvc --> KafkaOrders
-    KafkaOrders --> FlinkExec
-    FlinkExec --> Redis
-    FlinkExec --> DynamoDB
-    FlinkExec --> KafkaExec
+    %% Realtime Price Flow
+    MarketSvc -- Consumes --> TopicMarket
+    MarketSvc -- SET Price, PUBLISH Update --> Redis
+    MarketSvc -- WebSocket Connect --> WSUser
+    Redis -- Pub/Sub Notification --> MarketSvc
+    MarketSvc -- Pushes Price Update --> WSUser
+
+    %% User API Flows
+    User -- HTTP API Calls --> APIGW
+    APIGW -- POST /orders --> OrderSvc
+    APIGW -- GET /portfolio --> PortfolioSvc
+    APIGW -- GET /trades, /analytics --> QuerySvc
+
+    %% Order Placement Flow
+    OrderSvc -- Reads Price --> Redis
+    OrderSvc -- Reads Portfolio --> DynamoDB
+    OrderSvc -- Publishes Valid Order --> Kafka -- Writes --> TopicOrders
+
+    %% Portfolio Read Flow
+    PortfolioSvc -- Reads Portfolio --> DynamoDB
+    PortfolioSvc -- Reads Cache? --> Redis
+
+    %% Order Execution Flow
+    FlinkExec -- Consumes --> TopicOrders
+    FlinkExec -- Reads Price --> Redis
+    FlinkExec -- Conditional Write Portfolio --> DynamoDB
+    FlinkExec -- Publishes Executed/Failed --> Kafka -- Writes --> TopicExecuted
 
     %% Persistence Flow
-    KafkaExec --> FlinkPersist
-    FlinkPersist --> ES
-    FlinkPersist --> CH
+    FlinkPersist -- Consumes --> TopicExecuted
+    FlinkPersist -- Writes Trades --> Elasticsearch
+    FlinkPersist -- Writes/Aggregates Trades --> Clickhouse
 
     %% Query Flow
-    PortfolioSvc --> DynamoDB
-    QuerySvc --> ES
-    QuerySvc --> CH
+    QuerySvc -- Queries History --> Elasticsearch
+    QuerySvc -- Queries Analytics --> Clickhouse
 
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef external fill:#ddd,stroke:#333,stroke-width:2px;
-    classDef gateway fill:#e1f5fe,stroke:#333,stroke-width:2px;
-    classDef service fill:#e8f5e9,stroke:#333,stroke-width:2px;
-    classDef processing fill:#fff3e0,stroke:#333,stroke-width:2px;
-    classDef kafka fill:#fce4ec,stroke:#333,stroke-width:2px;
-    classDef store fill:#f3e5f5,stroke:#333,stroke-width:2px;
-
-    class Client,MarketFeed external;
-    class APIGW,WSGateway gateway;
-    class OrderSvc,PortfolioSvc,QuerySvc,MarketSvc service;
-    class FlinkExec,FlinkPersist processing;
-    class KafkaMarket,KafkaOrders,KafkaExec kafka;
-    class Redis,DynamoDB,ES,CH store;
+    %% Define Kafka Topic Grouping
+    subgraph Kafka Topics
+        TopicMarket
+        TopicOrders
+        TopicExecuted
+    end
 ```
