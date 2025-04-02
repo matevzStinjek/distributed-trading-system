@@ -12,30 +12,30 @@ flowchart TB
 
     subgraph Services[Core Services]
         direction TB
-        OrderSvc[Order Service\nGo]
-        PortfolioSvc[Portfolio Service\nGo]
-        QuerySvc[Query Service\nGo]
-        MarketSvc[Market Data Service\nElixir]
+        OrderSvc[Order Service<br/>Go]
+        PortfolioSvc[Portfolio Service<br/>Go]
+        QuerySvc[Query Service<br/>Go]
+        MarketSvc[Market Data Service<br/>Elixir]
     end
 
     subgraph Processing[Stream Processing]
         direction LR
-        FlinkExec[Trade Execution\nFlink]
-        FlinkPersist[Trade Persistence\nFlink]
+        FlinkExec[Trade Execution<br/>Flink]
+        FlinkPersist[Trade Persistence<br/>Flink]
     end
 
     subgraph EventBus[Event Bus]
         direction LR
-        KafkaMarket[market_data\nKafka Topic]
-        KafkaOrders[trade_orders\nKafka Topic]
-        KafkaExec[trade_executed\nKafka Topic]
+        KafkaMarket[market_data<br/>Kafka Topic]
+        KafkaOrders[trade_orders<br/>Kafka Topic]
+        KafkaExec[trade_executed<br/>Kafka Topic]
     end
 
     subgraph DataStores[Data Stores]
-        Redis[(Redis\nPrice Cache &\nPub/Sub)]
-        DynamoDB[(DynamoDB\nPortfolios)]
-        ES[(Elasticsearch\nTrade History)]
-        CH[(Clickhouse\nAnalytics)]
+        Redis[(Redis<br/>Price Cache &<br/>Pub/Sub)]
+        DynamoDB[(DynamoDB<br/>Portfolios)]
+        ES[(Elasticsearch<br/>Trade History)]
+        CH[(Clickhouse<br/>Analytics)]
     end
 
     %% External to Gateway
