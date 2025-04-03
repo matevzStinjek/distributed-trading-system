@@ -2,7 +2,7 @@ services:
   akhq:
     image: tchiotludo/akhq
     ports:
-      - "18080:8080"
+      - "18001:8080"
     volumes:
       - ../config/akhq/akhq.yml:/app/application.yml
     depends_on:
@@ -13,7 +13,7 @@ services:
   redisinsight:
     image: redislabs/redisinsight:latest
     ports:
-      - "18001:5540"
+      - "18002:5540"
     volumes:
       - redisinsight-data:/data
     depends_on:

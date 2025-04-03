@@ -1,4 +1,22 @@
 services:
+  redis-cache:
+    image: redis:alpine
+    ports:
+      - "16379:6379"
+    volumes:
+      - ../config/redis/cache.conf:/usr/local/etc/redis/redis.conf
+      - redis-cache-data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+  redis-pubsub:
+    image: redis:alpine
+    ports:
+      - "16380:6379"
+    volumes:
+      - ../config/redis/pubsub.conf:/usr/local/etc/redis/redis.conf
+      - redis-pubsub-data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+
   kafka-1:
     image: confluentinc/cp-kafka:latest
     hostname: kafka-1
@@ -43,3 +61,17 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    volumes:
+      - ../../../scripts/create-topics.sh:/app/create-topics.sh
+      - ../config/kafka/topics.yml:/app/topics.yml
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+    command: ["bash", "/app/create-topics.sh"]

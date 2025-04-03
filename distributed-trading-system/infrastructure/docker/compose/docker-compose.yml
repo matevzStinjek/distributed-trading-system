@@ -1,7 +1,7 @@
 include: 
   - application.yml
-  - redis.yml
-  - kafka.yml
+  - infrastructure.yml
+  - monitoring.yml
   - tools.yml
 
 volumes:
@@ -9,6 +9,9 @@ volumes:
   kafka1-data:
   kafka2-data:
   kafka3-data:
+  # monitoring
+  grafana-data:
+  prometheus-data:
   # redis
   redis-cache-data:
   redis-pubsub-data:
