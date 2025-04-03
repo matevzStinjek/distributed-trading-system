@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	TOPIC   = "my-topic-1"
+	TOPIC   = "market_data"
 	CHANNEL = "my-channel-1"
 )
 
