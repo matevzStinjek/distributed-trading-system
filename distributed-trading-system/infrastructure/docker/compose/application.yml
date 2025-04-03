@@ -7,13 +7,17 @@ services:
     volumes:
       - ../../../apps/go-service:/app
     ports:
-      - "13000:8080" # External:Internal
+      - "13000:8080"
     environment:
-      - KAFKA_BROKERS=kafka:29092 # Internal Kafka address
+      - KAFKA_BROKERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - KAFKA_CONSUMER_GROUP=group-1
       - REDIS_ADDR=redis-pubsub:6379
     depends_on:
-      kafka:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
         condition: service_healthy
       redis-pubsub:
         condition: service_started

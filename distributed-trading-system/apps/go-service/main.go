@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -152,14 +153,15 @@ func (h *MessageHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim
 		ctx, cancel := context.WithTimeout(session.Context(), 2*time.Second)
 
 		err := h.rp.Publish(ctx, msg)
-
 		cancel()
 		if err != nil {
 			log.Printf("Failed to publish to Redis: %v", err)
 			continue
 		}
+		log.Printf("Message published to Redis")
 
 		session.MarkMessage(message, "")
+		log.Printf("Message marked as processed")
 	}
 	return nil
 }
@@ -224,12 +226,12 @@ func NewRedisClient(addr string) (*RedisPublisher, error) {
 }
 
 func main() {
-	KAFKA_BROKERS := os.Getenv("KAFKA_BROKERS")
+	KAFKA_BROKERS := strings.Split(os.Getenv("KAFKA_BROKERS"), ",")
 	KAFKA_CONSUMER_GROUP := os.Getenv("KAFKA_CONSUMER_GROUP")
 	REDIS_ADDR := os.Getenv("REDIS_ADDR")
 
 	// producer
-	kafkaProducer, err := NewKafkaProducer([]string{KAFKA_BROKERS})
+	kafkaProducer, err := NewKafkaProducer(KAFKA_BROKERS)
 	if err != nil {
 		log.Fatalf("Failed to create a producer: %s", err)
 		return
@@ -244,7 +246,7 @@ func main() {
 	}
 	defer rp.Close()
 
-	kafkaConsumer, err := NewKafkaConsumer([]string{KAFKA_BROKERS}, KAFKA_CONSUMER_GROUP, []string{TOPIC}, rp)
+	kafkaConsumer, err := NewKafkaConsumer(KAFKA_BROKERS, KAFKA_CONSUMER_GROUP, []string{TOPIC}, rp)
 	if err != nil {
 		log.Fatalf("Failed to create a producer: %s", err)
 		return

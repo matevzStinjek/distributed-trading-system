@@ -5,6 +5,10 @@ include:
   - tools.yml
 
 volumes:
+  # kafka
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
   # redis
   redis-cache-data:
   redis-pubsub-data:

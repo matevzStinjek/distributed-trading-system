@@ -1,33 +1,108 @@
 services:
-  kafka:
+  kafka-1:
     image: confluentinc/cp-kafka:latest
-    ports:
-      - "19092:9092" # External access for local tools
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "kafka-topics --bootstrap-server kafka:29092 --list >/dev/null 2>&1",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 3
-      start_period: 30s # KRaft mode needs more startup time
+    hostname: kafka-1
+    container_name: kafka-1
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
     environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:19092
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:19092
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-      KAFKA_LOG4J_LOGGERS: >
-        kafka.controller=INFO,
-        kafka.server.KafkaConfig=WARN,
-        kafka.coordinator.transaction=WARN,
-        state.change.logger=WARN
+     # Node Identity
+     KAFKA_NODE_ID: 1
+     CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+     # Role Configuration
+     KAFKA_PROCESS_ROLES: broker,controller
+     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:29093,2@kafka-2:29093,3@kafka-3:29093
+     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+     # Listener Configuration
+     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+     KAFKA_LISTENERS: PLAINTEXT://kafka-1:29092,CONTROLLER://kafka-1:29093
+     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:29092
+     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+     # Topic Configuration
+     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+     # Logging Configuration
+     KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+     KAFKA_LOG4J_LOGGERS: >
+       kafka.controller=INFO,
+       kafka.server.KafkaConfig=WARN,
+       kafka.coordinator.transaction=WARN,
+       state.change.logger=WARN
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  kafka-2:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka-2
+    container_name: kafka-2
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+    environment:
+     # Node Identity
+     KAFKA_NODE_ID: 2
+     CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+     # Role Configuration
+     KAFKA_PROCESS_ROLES: broker,controller
+     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:29093,2@kafka-2:29093,3@kafka-3:29093
+     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+     # Listener Configuration
+     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+     KAFKA_LISTENERS: PLAINTEXT://kafka-2:29092,CONTROLLER://kafka-2:29093
+     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:29092
+     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+     # Topic Configuration
+     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+     # Logging Configuration
+     KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+     KAFKA_LOG4J_LOGGERS: >
+       kafka.controller=INFO,
+       kafka.server.KafkaConfig=WARN,
+       kafka.coordinator.transaction=WARN,
+       state.change.logger=WARN
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  kafka-3:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka-3
+    container_name: kafka-3
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+    environment:
+     # Node Identity
+     KAFKA_NODE_ID: 3
+     CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+     # Role Configuration
+     KAFKA_PROCESS_ROLES: broker,controller
+     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:29093,2@kafka-2:29093,3@kafka-3:29093
+     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+     # Listener Configuration
+     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+     KAFKA_LISTENERS: PLAINTEXT://kafka-3:29092,CONTROLLER://kafka-3:29093
+     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:29092
+     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+     # Topic Configuration
+     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+     # Logging Configuration
+     KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+     KAFKA_LOG4J_LOGGERS: >
+       kafka.controller=INFO,
+       kafka.server.KafkaConfig=WARN,
+       kafka.coordinator.transaction=WARN,
+       state.change.logger=WARN
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
