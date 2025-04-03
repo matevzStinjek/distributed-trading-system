@@ -64,9 +64,6 @@ services:
 
   kafka-init:
     image: confluentinc/cp-kafka:latest
-    volumes:
-      - ../../../scripts/create-topics.sh:/app/create-topics.sh
-      - ../config/kafka/topics.yml:/app/topics.yml
     depends_on:
       kafka-1:
         condition: service_healthy
@@ -74,4 +71,9 @@ services:
         condition: service_healthy
       kafka-3:
         condition: service_healthy
-    command: ["bash", "/app/create-topics.sh"]
+    command: |
+      /bin/bash -c '
+      kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic market_data --partitions 3 --replication-factor 3 &&
+      kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic trade_orders --partitions 3 --replication-factor 3 &&
+      kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic trade_executed --partitions 3 --replication-factor 3
+      '

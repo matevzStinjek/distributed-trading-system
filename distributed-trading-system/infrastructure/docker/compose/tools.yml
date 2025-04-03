@@ -6,9 +6,14 @@ services:
     volumes:
       - ../config/akhq/akhq.yml:/app/application.yml
     depends_on:
-      - kafka-1
-      - kafka-2
-      - kafka-3
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   redisinsight:
     image: redislabs/redisinsight:latest
