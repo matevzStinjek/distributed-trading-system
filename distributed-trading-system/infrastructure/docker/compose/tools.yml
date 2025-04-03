@@ -19,7 +19,7 @@ services:
     ports:
       - "18001:5540"
     volumes:
-      - redisinsight-data:/db
+      - redisinsight-data:/data
     depends_on:
       - redis-cache
       - redis-pubsub
