@@ -11,11 +11,11 @@ services:
     environment:
       - KAFKA_BROKERS=kafka:29092 # Internal Kafka address
       - KAFKA_CONSUMER_GROUP=group-1
-      - REDIS_ADDR=redis:6379
+      - REDIS_ADDR=redis-pubsub:6379
     depends_on:
       kafka:
         condition: service_healthy
-      redis:
+      redis-pubsub:
         condition: service_started
 
   elixir-service:
@@ -23,10 +23,10 @@ services:
       context: ../../../apps/elixir_service
       dockerfile: Dockerfile
     volumes:
-      - ./elixir_service:/app
+      - ../../../apps/elixir_service:/app
     ports:
       - "14000:4000"
     environment:
-      - REDIS_URI=redis://default:@redis:6379
+      - REDIS_URI=redis://default:@redis-pubsub:6379
     depends_on:
-      - redis
+      - redis-pubsub

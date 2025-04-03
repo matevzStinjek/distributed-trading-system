@@ -5,7 +5,10 @@ include:
   - tools.yml
 
 volumes:
-  redis-data:
+  # redis
+  redis-cache-data:
+  redis-pubsub-data:
+  # tools
   redisinsight-data:
 
 x-common-variables: &common-variables

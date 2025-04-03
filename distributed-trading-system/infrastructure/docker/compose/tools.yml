@@ -21,4 +21,5 @@ services:
     volumes:
       - redisinsight-data:/db
     depends_on:
-      - redis
+      - redis-cache
+      - redis-pubsub
