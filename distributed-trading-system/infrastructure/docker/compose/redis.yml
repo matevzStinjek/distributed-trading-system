@@ -1,0 +1,14 @@
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "16379:6379" # Exposed for GUI tools
+    command: >
+      redis-server 
+      --maxmemory 512mb 
+      --maxmemory-policy allkeys-lru 
+      --save 900 1 
+      --save 300 10
+      --appendonly yes
+    volumes:
+      - redis-data:/data

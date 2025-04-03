@@ -1,0 +1,32 @@
+services:
+  go-service:
+    build:
+      context: ../../../apps/go-service
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - ../../../apps/go-service:/app
+    ports:
+      - "13000:8080" # External:Internal
+    environment:
+      - KAFKA_BROKERS=kafka:29092 # Internal Kafka address
+      - KAFKA_CONSUMER_GROUP=group-1
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  elixir-service:
+    build:
+      context: ../../../apps/elixir_service
+      dockerfile: Dockerfile
+    volumes:
+      - ./elixir_service:/app
+    ports:
+      - "14000:4000"
+    environment:
+      - REDIS_URI=redis://default:@redis:6379
+    depends_on:
+      - redis

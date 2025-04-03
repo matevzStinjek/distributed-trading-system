@@ -1,110 +1,13 @@
-services:
-  # Application Services
-  go-service:
-    build:
-      context: ./go-service
-      dockerfile: Dockerfile
-      target: dev
-    volumes:
-      - ./go-service:/app
-    ports:
-      - "13000:8080" # External:Internal
-    environment:
-      - KAFKA_BROKERS=kafka:29092 # Internal Kafka address
-      - KAFKA_CONSUMER_GROUP=group-1
-      - REDIS_ADDR=redis:6379
-    depends_on:
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
-  elixir-service:
-    build:
-      context: ./elixir_service
-      dockerfile: Dockerfile
-    volumes:
-      - ./elixir_service:/app
-    ports:
-      - "14000:4000"
-    environment:
-      - REDIS_URI=redis://default:@redis:6379
-    depends_on:
-      - redis
-
-  # Infrastructure Services
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    ports:
-      - "19092:9092" # External access for local tools
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "kafka-topics --bootstrap-server kafka:29092 --list >/dev/null 2>&1",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 3
-      start_period: 30s # KRaft mode needs more startup time
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:19092
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:19092
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-      KAFKA_LOG4J_LOGGERS: >
-        kafka.controller=INFO,
-        kafka.server.KafkaConfig=WARN,
-        kafka.coordinator.transaction=WARN,
-        state.change.logger=WARN
-
-  redis:
-    image: redis:latest
-    ports:
-      - "16379:6379" # Exposed for GUI tools
-    command: >
-      redis-server 
-      --maxmemory 512mb 
-      --maxmemory-policy allkeys-lru 
-      --save 900 1 
-      --save 300 10
-      --appendonly yes
-    volumes:
-      - redis-data:/data
-
-  # Monitoring & Management
-  akhq:
-    image: tchiotludo/akhq
-    ports:
-      - "18080:8080"
-    environment:
-      AKHQ_CONFIGURATION: |
-        akhq:
-          connections:
-            local:
-              properties:
-                bootstrap.servers: "kafka:29092"
-              topic-creation: true
-    depends_on:
-      - kafka
-
-  redisinsight:
-    image: redislabs/redisinsight:latest
-    ports:
-      - "18001:5540"
-    volumes:
-      - redisinsight-data:/db
-    depends_on:
-      - redis
+include: 
+  - application.yml
+  - redis.yml
+  - kafka.yml
+  - tools.yml
 
 volumes:
   redis-data:
   redisinsight-data:
+
+x-common-variables: &common-variables
+  ENVIRONMENT: local
+  LOG_LEVEL: info
