@@ -4,7 +4,7 @@ services:
     ports:
       - "18080:8080"
     volumes:
-      - ../config/akhq/application.yml:/app/application.yml
+      - ../config/akhq/akhq.yml:/app/application.yml
     depends_on:
       - kafka-1
       - kafka-2
