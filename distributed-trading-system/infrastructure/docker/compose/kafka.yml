@@ -5,29 +5,8 @@ services:
     container_name: kafka-1
     volumes:
       - kafka1-data:/var/lib/kafka/data
-    environment:
-     # Node Identity
-     KAFKA_NODE_ID: 1
-     CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-     # Role Configuration
-     KAFKA_PROCESS_ROLES: broker,controller
-     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:29093,2@kafka-2:29093,3@kafka-3:29093
-     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-     # Listener Configuration
-     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-     KAFKA_LISTENERS: PLAINTEXT://kafka-1:29092,CONTROLLER://kafka-1:29093
-     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:29092
-     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-     # Topic Configuration
-     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-     # Logging Configuration
-     KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-     KAFKA_LOG4J_LOGGERS: >
-       kafka.controller=INFO,
-       kafka.server.KafkaConfig=WARN,
-       kafka.coordinator.transaction=WARN,
-       state.change.logger=WARN
+    env_file:
+      - ../config/kafka/kafka-1.env
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1"]
       interval: 2s
@@ -41,31 +20,10 @@ services:
     container_name: kafka-2
     volumes:
       - kafka2-data:/var/lib/kafka/data
-    environment:
-     # Node Identity
-     KAFKA_NODE_ID: 2
-     CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-     # Role Configuration
-     KAFKA_PROCESS_ROLES: broker,controller
-     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:29093,2@kafka-2:29093,3@kafka-3:29093
-     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-     # Listener Configuration
-     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-     KAFKA_LISTENERS: PLAINTEXT://kafka-2:29092,CONTROLLER://kafka-2:29093
-     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:29092
-     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-     # Topic Configuration
-     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-     # Logging Configuration
-     KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-     KAFKA_LOG4J_LOGGERS: >
-       kafka.controller=INFO,
-       kafka.server.KafkaConfig=WARN,
-       kafka.coordinator.transaction=WARN,
-       state.change.logger=WARN
+    env_file:
+      - ../config/kafka/kafka-2.env
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-2:29092 --list >/dev/null 2>&1"]
       interval: 2s
       timeout: 5s
       retries: 5
@@ -77,31 +35,10 @@ services:
     container_name: kafka-3
     volumes:
       - kafka3-data:/var/lib/kafka/data
-    environment:
-     # Node Identity
-     KAFKA_NODE_ID: 3
-     CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-     # Role Configuration
-     KAFKA_PROCESS_ROLES: broker,controller
-     KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:29093,2@kafka-2:29093,3@kafka-3:29093
-     KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-     # Listener Configuration
-     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-     KAFKA_LISTENERS: PLAINTEXT://kafka-3:29092,CONTROLLER://kafka-3:29093
-     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:29092
-     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-     # Topic Configuration
-     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-     # Logging Configuration
-     KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
-     KAFKA_LOG4J_LOGGERS: >
-       kafka.controller=INFO,
-       kafka.server.KafkaConfig=WARN,
-       kafka.coordinator.transaction=WARN,
-       state.change.logger=WARN
+    env_file:
+      - ../config/kafka/kafka-3.env
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-1:29092 --list >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka-3:29092 --list >/dev/null 2>&1"]
       interval: 2s
       timeout: 5s
       retries: 5
