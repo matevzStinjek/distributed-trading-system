@@ -1,0 +1,62 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "19090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ../config/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "18000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ../config/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+  kminion-exporter:
+    image: redpandadata/kminion:v2.2.12
+    volumes:
+      - ../config/kminion/kminion.yml:/etc/kminion/config.yml
+    environment:
+      CONFIG_FILEPATH: /etc/kminion/config.yml
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+
+  redis-exporter-cache:
+    image: oliver006/redis_exporter:latest
+    environment:
+      - REDIS_ADDR=redis-cache:6379
+    depends_on:
+      - redis-cache
+
+  redis-exporter-pubsub:
+    image: oliver006/redis_exporter:latest
+    environment:
+      - REDIS_ADDR=redis-pubsub:6379
+    depends_on:
+      - redis-pubsub
