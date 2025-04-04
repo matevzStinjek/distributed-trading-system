@@ -1,0 +1,48 @@
+kafka:
+  brokers:
+    - "kafka-1:29092"
+    - "kafka-2:29092"
+    - "kafka-3:29092"
+  # tls:
+  #   enabled: false
+  # sasl:
+  #   enabled: false
+
+minion:
+  # Settings for scraping consumer group info
+  consumerGroups:
+    enabled: true
+    # scrapeMode: adminApi # Default is usually fine
+    # granularity: partition # Default is partition
+    # allowedGroups: [ ".*" ] # Default allows all
+    # ignoredGroups: [ ]
+
+  # Settings for scraping topic info
+  topics:
+    enabled: true
+    # granularity: partition # Default is partition
+    # allowedTopics: [ ".*" ] # Default allows all
+    # ignoredTopics: [ ]
+    # infoMetric: # Example, if needed
+    #  configKeys: [ "cleanup.policy" ]
+
+  # Settings for scraping log directory info (usually enabled by default)
+  # logDirs:
+  #  enabled: true
+
+  # Settings for end-to-end latency probes (disabled by default)
+  # endToEnd:
+  #  enabled: false
+
+# Settings related to HOW KMinion exposes metrics via HTTP
+exporter:
+  # Host/IP to bind the HTTP server to. "" or "0.0.0.0" usually work.
+  host: "0.0.0.0"
+  # Port for the HTTP server
+  port: 8080
+  # Namespace (metric prefix) - default is "kminion"
+  # namespace: "kminion"
+
+# Logger configuration (optional, defaults are usually fine)
+# logger:
+#   level: info
