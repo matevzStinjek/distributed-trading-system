@@ -14,6 +14,9 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    profiles:
+      - optional
+      - all
 
   redisinsight:
     image: redislabs/redisinsight:latest
@@ -24,3 +27,6 @@ services:
     depends_on:
       - redis-cache
       - redis-pubsub
+    profiles:
+      - optional
+      - all
