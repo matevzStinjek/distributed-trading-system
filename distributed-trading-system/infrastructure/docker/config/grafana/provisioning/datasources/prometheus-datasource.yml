@@ -1,0 +1,36 @@
+# config file version
+apiVersion: 1
+
+# list of datasources that should be deleted from the database
+deleteDatasources:
+  - name: Prometheus # Optional: delete any existing datasource with this name
+    orgId: 1
+
+# list of datasources to insert/update depending
+# on what's available in the database
+datasources:
+  # <string, required> name of the datasource. Required
+  - name: Prometheus
+    # <string, required> datasource type. Required
+    type: prometheus
+    # <string, required> access mode. direct or proxy. Required ('server' for service-to-service)
+    access: proxy # Use 'proxy' access mode Grafana server accesses the URL
+    # <string> url. Required
+    url: http://prometheus:9090 # Use the service name and port within the Docker network
+    # <bool> mark as default datasource. Optional
+    isDefault: true
+    # <int> org id. Defaults to orgId 1. Optional
+    orgId: 1
+    # <string> json data. Optional, depends on plugin type
+    jsonData:
+      httpMethod: POST # Often preferred for Prometheus
+      # Tweak scrape interval/timeouts if needed, but usually defaults are fine
+      #timeInterval: "15s"
+    # <bool> enable basic auth. Optional
+    #basicAuth: false
+    # <string> basic auth username. Optional
+    #basicAuthUser:
+    # <string> basic auth password. Optional
+    #basicAuthPassword:
+    # <bool> allow users to edit datasources from the UI. Optional
+    editable: false
