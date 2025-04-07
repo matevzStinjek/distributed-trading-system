@@ -1,22 +1,4 @@
 services:
-  redis-cache:
-    image: redis:alpine
-    ports:
-      - "16379:6379"
-    volumes:
-      - ../config/redis/cache.conf:/usr/local/etc/redis/redis.conf
-      - redis-cache-data:/data
-    command: redis-server /usr/local/etc/redis/redis.conf
-
-  redis-pubsub:
-    image: redis:alpine
-    ports:
-      - "16380:6379"
-    volumes:
-      - ../config/redis/pubsub.conf:/usr/local/etc/redis/redis.conf
-      - redis-pubsub-data:/data
-    command: redis-server /usr/local/etc/redis/redis.conf
-
   kafka-1:
     image: confluentinc/cp-kafka:latest
     hostname: kafka-1
@@ -77,3 +59,21 @@ services:
       kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic trade_orders --partitions 3 --replication-factor 3 &&
       kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic trade_executed --partitions 3 --replication-factor 3
       '
+
+  redis-cache:
+    image: redis:alpine
+    ports:
+      - "16379:6379"
+    volumes:
+      - ../config/redis/cache.conf:/usr/local/etc/redis/redis.conf
+      - redis-cache-data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+  redis-pubsub:
+    image: redis:alpine
+    ports:
+      - "16380:6379"
+    volumes:
+      - ../config/redis/pubsub.conf:/usr/local/etc/redis/redis.conf
+      - redis-pubsub-data:/data
+    command: redis-server /usr/local/etc/redis/redis.conf
