@@ -1,4 +1,21 @@
 services:
+  # dynamodb:
+  #   image: amazon/dynamodb-local:latest
+  #   command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+  #   working_dir: /home/dynamodblocal
+  #   user: "1000:1000"
+  #   volumes:
+  #     - dynamodb-data:/home/dynamodblocal/data
+  #   environment:
+  #     AWS_ACCESS_KEY_ID: "dummy"
+  #     AWS_SECRET_ACCESS_KEY: "dummy"
+  #     AWS_REGION: "us-east-1"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", '[ "$(curl -s -o /dev/null -I -w ''%{http_code}'' http://localhost:8000)" == "400" ]']
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 3
+
   kafka-1:
     image: confluentinc/cp-kafka:latest
     hostname: kafka-1
@@ -43,22 +60,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
-
-  kafka-init:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      kafka-1:
-        condition: service_healthy
-      kafka-2:
-        condition: service_healthy
-      kafka-3:
-        condition: service_healthy
-    command: |
-      /bin/bash -c '
-      kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic market_data --partitions 3 --replication-factor 3 &&
-      kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic trade_orders --partitions 3 --replication-factor 3 &&
-      kafka-topics --bootstrap-server kafka-1:29092 --create --if-not-exists --topic trade_executed --partitions 3 --replication-factor 3
-      '
 
   redis-cache:
     image: redis:alpine

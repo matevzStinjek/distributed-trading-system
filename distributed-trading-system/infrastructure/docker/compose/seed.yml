@@ -1,0 +1,26 @@
+services:
+  # dynamodb-init:
+  #   image: amazon/aws-cli
+  #   volumes:
+  #     - ../scripts/:/scripts
+  #   command: sh /scripts/init-dynamodb.sh
+  #   environment:
+  #     AWS_ACCESS_KEY_ID: dummy
+  #     AWS_SECRET_ACCESS_KEY: dummy
+  #     AWS_DEFAULT_REGION: us-east-1
+  #   depends_on:
+  #     dynamodb:
+  #       condition: service_healthy
+
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    volumes:
+      - ../scripts/:/scripts
+    command: sh /scripts/init-kafka.sh
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy

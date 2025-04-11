@@ -2,9 +2,12 @@ include:
   - application.yml
   - infrastructure.yml
   - monitoring.yml
+  - seed.yml
   - tools.yml
 
 volumes:
+  # # dynamodb
+  # dynamodb-data:
   # kafka
   kafka1-data:
   kafka2-data:

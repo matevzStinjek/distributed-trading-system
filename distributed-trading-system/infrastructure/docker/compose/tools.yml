@@ -1,8 +1,18 @@
 services:
+  # dynamodb-admin:
+  #   image: aaronshaf/dynamodb-admin:latest
+  #   ports:
+  #     - "18001:8001"
+  #   environment:
+  #     DYNAMO_ENDPOINT: "http://dynamodb:8000"
+  #   depends_on:
+  #     dynamodb:
+  #       condition: service_healthy
+
   akhq:
     image: tchiotludo/akhq
     ports:
-      - "18001:8080"
+      - "18002:8080"
     volumes:
       - ../config/akhq/akhq.yml:/app/application.yml
     depends_on:
@@ -21,7 +31,7 @@ services:
   redisinsight:
     image: redislabs/redisinsight:latest
     ports:
-      - "18002:5540"
+      - "18003:5540"
     volumes:
       - redisinsight-data:/data
     depends_on:
