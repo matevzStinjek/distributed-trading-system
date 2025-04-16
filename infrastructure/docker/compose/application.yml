@@ -34,3 +34,15 @@ services:
       - REDIS_URI=redis://default:@redis-pubsub:6379
     depends_on:
       - redis-pubsub
+  
+  market-data-ingest:
+    build:
+      context: ../../../apps/market-data-ingest
+      dockerfile: Dockerfile
+      target: dev
+    env_file:
+      - ../../../apps/market-data-ingest/.env.dev
+    volumes:
+      - ../../../apps/market-data-ingest:/app
+    ports:
+      - "15060:6060" # pprof
