@@ -71,18 +71,32 @@ type MarketDataClient struct {
 	client *stream.StocksClient
 }
 
-func (mc *MarketDataClient) Connect() {
-	mc.Connect()
+func (mc *MarketDataClient) Connect(ctx context.Context) error {
+	return mc.client.Connect(ctx)
 }
 
-func NewMarketDataClient() {
+func (mc *MarketDataClient) SubscribeToTrades(handler func(stream.Trade), symbols []string) error {
+	return mc.client.SubscribeToTrades(handler, symbols...)
+}
+
+func (mc *MarketDataClient) UnsubscribeFromTrades(symbols []string) error {
+	return mc.client.UnsubscribeFromTrades(symbols...)
+}
+
+func NewMarketDataClient() *MarketDataClient {
+	return &MarketDataClient{
+		client: stream.NewStocksClient("iex"),
+	}
 }
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	// --- Load config ---
+	cfg, err := loadConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-	// Start pprof server
+	// --- Start pprof server ---
 	pprof := &http.Server{Addr: ":6060"}
 	go func() {
 		log.Println("Starting pprof server on :6060")
@@ -91,21 +105,19 @@ func main() {
 		}
 	}()
 
-	cfg, err := loadConfig()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	// --- Setup context for graceful shutdown
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
-	client := stream.NewStocksClient("iex")
+	client := NewMarketDataClient()
 
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalln(err)
 	}
 
 	tp := NewTradeProcessor()
-	log.Println(len(tp.tradesChannel))
 
-	if err := client.SubscribeToTrades(tp.recordTrade, cfg.symbols...); err != nil {
+	if err := client.SubscribeToTrades(tp.recordTrade, cfg.symbols); err != nil {
 		log.Fatalln(err)
 	}
 
@@ -114,7 +126,7 @@ func main() {
 	<-ctx.Done()
 
 	log.Println("SIGINT received, closing connections and shutting down")
-	if err := client.UnsubscribeFromTrades(cfg.symbols...); err != nil {
+	if err := client.UnsubscribeFromTrades(cfg.symbols); err != nil {
 		log.Fatalln(err)
 	}
 	log.Println("Unsubscrubed, closing")
