@@ -4,10 +4,14 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
 	Symbols []string
+
+	KafkaBrokers         []string
+	KafkaTopicMarketData string
 
 	RedisCacheAddr string
 	RedisCacheUser string
@@ -29,6 +33,9 @@ func LoadConfig() (*Config, error) {
 
 	cfg := &Config{
 		Symbols: []string{"AAPL", "MSFT", "GOOG", "AMZN", "TSLA"},
+
+		KafkaBrokers:         strings.Split(os.Getenv("KAFKA_BROKERS"), ","),
+		KafkaTopicMarketData: os.Getenv("KAFKA_TOPIC_MARKET_DATA"),
 
 		RedisCacheAddr: os.Getenv("REDIS_CACHE_ADDR"),
 		RedisCacheUser: os.Getenv("REDIS_CACHE_UN"),

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,15 +13,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
-	infra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
 type TradeProcessor struct {
-	cacheClient  *infra.RedisClient
-	pubsubClient *infra.RedisClient
+	cfg            *config.Config
+	cacheClient    *redis.RedisClient
+	pubsubClient   *redis.RedisClient
+	saramaProducer *kafka.SaramaAsyncProducer
 }
 
 func (tp *TradeProcessor) processTrade(t marketdata.Trade) error {
@@ -41,6 +46,20 @@ func (tp *TradeProcessor) processTrade(t marketdata.Trade) error {
 	}
 
 	// publish to kafka
+	bytes, err := json.Marshal(t)
+	if err != nil {
+		log.Printf("could not marshall trade object: %v", err)
+	} else {
+		message := &sarama.ProducerMessage{
+			Topic:     tp.cfg.KafkaTopicMarketData,
+			Key:       sarama.StringEncoder(t.Symbol),
+			Value:     sarama.ByteEncoder(bytes),
+			Timestamp: t.Timestamp,
+		}
+
+		tp.saramaProducer.Producer.Input() <- message
+	}
+
 	log.Printf("%v", t)
 	return nil
 }
@@ -79,19 +98,26 @@ func main() {
 		log.Fatalf("error connecting to stocks client: %v", err)
 	}
 
-	cacheClient, err := infra.NewRedisCacheClient(ctx, cfg)
+	cacheClient, err := redis.NewRedisCacheClient(ctx, cfg)
 	if err != nil {
 		log.Fatalf("error pinging redis cache instance: %v", err)
 	}
 
-	pubsubClient, err := infra.NewRedisPubsubClient(ctx, cfg)
+	pubsubClient, err := redis.NewRedisPubsubClient(ctx, cfg)
 	if err != nil {
 		log.Fatalf("error pinging redis pubsub instance: %v", err)
 	}
 
+	saramaProducer, err := kafka.NewKafkaAsyncProducer(cfg)
+	if err != nil {
+		log.Fatalf("error creating sarama async producer: %v", err)
+	}
+
 	processor := TradeProcessor{
-		cacheClient:  cacheClient,
-		pubsubClient: pubsubClient,
+		cfg:            cfg,
+		cacheClient:    cacheClient,
+		pubsubClient:   pubsubClient,
+		saramaProducer: saramaProducer,
 	}
 
 	tradeChannel := make(chan marketdata.Trade, cfg.TradeChannelBuff)
@@ -115,14 +141,14 @@ func main() {
 
 	tradeChannel <- marketdata.Trade{
 		ID:        1,
-		Symbol:    "AAPL",
+		Symbol:    "MSFT",
 		Price:     1,
 		Size:      1,
 		Timestamp: time.Now(),
 	}
 	tradeChannel <- marketdata.Trade{
 		ID:        2,
-		Symbol:    "AAPL",
+		Symbol:    "MSFT",
 		Price:     1,
 		Size:      1,
 		Timestamp: time.Now(),
