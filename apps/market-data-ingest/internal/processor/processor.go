@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
@@ -15,9 +16,13 @@ type TradeProcessor struct {
 	cacheClient    *redis.RedisClient
 	pubsubClient   *redis.RedisClient
 	producerClient *kafka.SaramaAsyncProducer
+	wg             sync.WaitGroup
 }
 
 func (tp *TradeProcessor) processTrade(t marketdata.Trade) error {
+	tp.wg.Add(1)
+	defer tp.wg.Done()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
@@ -50,9 +55,15 @@ func (tp *TradeProcessor) Start(ctx context.Context, tradeChannel <-chan marketd
 		case trade, ok := <-tradeChannel:
 			log.Printf("OK: %t", ok)
 			if !ok {
+				log.Println("Trade channel closed, processor stopping...")
+				tp.wg.Wait()
+				log.Println("All pending trade processing finished.")
 			}
 			tp.processTrade(trade)
 		case <-ctx.Done():
+			log.Println("Processor context cancelled, stopping...")
+			tp.wg.Wait()
+			log.Println("All pending trade processing finished due to context cancellation.")
 			return
 		}
 	}
@@ -64,8 +75,8 @@ func NewTradeProcessor(
 	producerClient *kafka.SaramaAsyncProducer,
 ) *TradeProcessor {
 	return &TradeProcessor{
-		cacheClient,
-		pubsubClient,
-		producerClient,
+		cacheClient:    cacheClient,
+		pubsubClient:   pubsubClient,
+		producerClient: producerClient,
 	}
 }
