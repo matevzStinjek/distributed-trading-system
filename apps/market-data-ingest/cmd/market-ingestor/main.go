@@ -38,16 +38,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("error pinging redis cache instance: %v", err)
 	}
+	defer cacheClient.Client.Close()
 
 	pubsubClient, err := redis.NewRedisPubsubClient(ctx, cfg)
 	if err != nil {
 		log.Fatalf("error pinging redis pubsub instance: %v", err)
 	}
+	defer pubsubClient.Client.Close()
 
 	saramaProducer, err := kafka.NewKafkaAsyncProducer(cfg)
 	if err != nil {
 		log.Fatalf("error creating sarama async producer: %v", err)
 	}
+	defer saramaProducer.Producer.Close()
 
 	// setup tradeProcessor, channel, and start consuming channel
 	tradeProcessor := processor.NewTradeProcessor(cacheClient, pubsubClient, saramaProducer)
@@ -88,5 +91,10 @@ func main() {
 	}
 
 	<-ctx.Done()
+	if err = alpaca.UnsubscribeFromTrades(); err != nil {
+		log.Printf("failed to unsubscribe from alpaca trades: %v", err)
+	}
+
+	close(tradeChannel)
 	consumeWg.Done()
 }
