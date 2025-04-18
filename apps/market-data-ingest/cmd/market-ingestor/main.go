@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
@@ -22,10 +20,9 @@ import (
 )
 
 type TradeProcessor struct {
-	cfg            *config.Config
 	cacheClient    *redis.RedisClient
 	pubsubClient   *redis.RedisClient
-	saramaProducer *kafka.SaramaAsyncProducer
+	producerClient *kafka.SaramaAsyncProducer
 }
 
 func (tp *TradeProcessor) processTrade(t marketdata.Trade) error {
@@ -46,18 +43,9 @@ func (tp *TradeProcessor) processTrade(t marketdata.Trade) error {
 	}
 
 	// publish to kafka
-	bytes, err := json.Marshal(t)
+	err = tp.producerClient.Produce(t)
 	if err != nil {
-		log.Printf("could not marshall trade object: %v", err)
-	} else {
-		message := &sarama.ProducerMessage{
-			Topic:     tp.cfg.KafkaTopicMarketData,
-			Key:       sarama.StringEncoder(t.Symbol),
-			Value:     sarama.ByteEncoder(bytes),
-			Timestamp: t.Timestamp,
-		}
-
-		tp.saramaProducer.Producer.Input() <- message
+		log.Printf("produce failed: %v", err)
 	}
 
 	log.Printf("%v", t)
@@ -110,10 +98,9 @@ func main() {
 
 	// setup processor, channel, and start consuming channel
 	processor := TradeProcessor{
-		cfg:            cfg,
 		cacheClient:    cacheClient,
 		pubsubClient:   pubsubClient,
-		saramaProducer: saramaProducer,
+		producerClient: saramaProducer,
 	}
 
 	tradeChannel := make(chan marketdata.Trade, cfg.TradeChannelBuff)
