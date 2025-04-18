@@ -63,12 +63,12 @@ func main() {
 	}()
 
 	// setup stocks client
-	client, err := provider.NewMarketClient(ctx)
+	alpaca, err := provider.NewAlpacaClient(ctx)
 	if err != nil {
 		log.Fatalf("error connecting to stocks client: %v", err)
 	}
 
-	client.SubscribeToTrades(func(t stream.Trade) {
+	alpaca.SubscribeToTrades(func(t stream.Trade) {
 		tradeChannel <- marketdata.Trade{
 			ID:        t.ID,
 			Symbol:    t.Symbol,

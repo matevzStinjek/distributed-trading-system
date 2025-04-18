@@ -6,21 +6,21 @@ import (
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 )
 
-type MarketClient struct {
+type AlpacaClient struct {
 	client *stream.StocksClient
 }
 
-func (mc *MarketClient) SubscribeToTrades(handler func(t stream.Trade), symbols []string) {
+func (mc *AlpacaClient) SubscribeToTrades(handler func(t stream.Trade), symbols []string) {
 	mc.client.SubscribeToTrades(handler, symbols...)
 }
 
-func NewMarketClient(ctx context.Context) (*MarketClient, error) {
+func NewAlpacaClient(ctx context.Context) (*AlpacaClient, error) {
 	client := stream.NewStocksClient("iex")
 	if err := client.Connect(ctx); err != nil {
 		return nil, err
 	}
 
-	return &MarketClient{
+	return &AlpacaClient{
 		client: client,
 	}, nil
 }
