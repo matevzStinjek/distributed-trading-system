@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/provider"
@@ -68,14 +67,8 @@ func main() {
 		log.Fatalf("error connecting to stocks client: %v", err)
 	}
 
-	alpaca.SubscribeToTrades(func(t stream.Trade) {
-		tradeChannel <- marketdata.Trade{
-			ID:        t.ID,
-			Symbol:    t.Symbol,
-			Price:     t.Price,
-			Size:      t.Size,
-			Timestamp: t.Timestamp,
-		}
+	alpaca.SubscribeToTrades(func(t marketdata.Trade) {
+		tradeChannel <- t
 	}, cfg.Symbols)
 
 	// mock trades
