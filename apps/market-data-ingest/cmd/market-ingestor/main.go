@@ -83,6 +83,7 @@ func main() {
 		http.ListenAndServe(":6060", nil)
 	}()
 
+	// setup context and config
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -91,13 +92,7 @@ func main() {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	client := stream.NewStocksClient("iex")
-
-	err = client.Connect(ctx)
-	if err != nil {
-		log.Fatalf("error connecting to stocks client: %v", err)
-	}
-
+	// setup clients
 	cacheClient, err := redis.NewRedisCacheClient(ctx, cfg)
 	if err != nil {
 		log.Fatalf("error pinging redis cache instance: %v", err)
@@ -113,6 +108,7 @@ func main() {
 		log.Fatalf("error creating sarama async producer: %v", err)
 	}
 
+	// setup processor, channel, and start consuming channel
 	processor := TradeProcessor{
 		cfg:            cfg,
 		cacheClient:    cacheClient,
@@ -129,6 +125,14 @@ func main() {
 		processor.ConsumeTrades(ctx, tradeChannel)
 	}()
 
+	// setup stocks client
+	client := stream.NewStocksClient("iex")
+
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatalf("error connecting to stocks client: %v", err)
+	}
+
 	client.SubscribeToTrades(func(t stream.Trade) {
 		tradeChannel <- marketdata.Trade{
 			ID:        t.ID,
@@ -139,6 +143,7 @@ func main() {
 		}
 	})
 
+	// mock trades
 	tradeChannel <- marketdata.Trade{
 		ID:        1,
 		Symbol:    "MSFT",
