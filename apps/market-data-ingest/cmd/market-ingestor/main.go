@@ -14,6 +14,7 @@ import (
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/provider"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -62,9 +63,7 @@ func main() {
 	}()
 
 	// setup stocks client
-	client := stream.NewStocksClient("iex")
-
-	err = client.Connect(ctx)
+	client, err := provider.NewMarketClient(ctx)
 	if err != nil {
 		log.Fatalf("error connecting to stocks client: %v", err)
 	}
@@ -77,7 +76,7 @@ func main() {
 			Size:      t.Size,
 			Timestamp: t.Timestamp,
 		}
-	})
+	}, cfg.Symbols)
 
 	// mock trades
 	tradeChannel <- marketdata.Trade{
