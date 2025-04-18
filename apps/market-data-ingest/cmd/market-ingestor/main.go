@@ -62,14 +62,14 @@ func main() {
 	}()
 
 	// setup stocks client
-	alpaca, err := provider.NewAlpacaClient(ctx)
+	alpaca, err := provider.NewAlpacaClient(ctx, cfg)
 	if err != nil {
 		log.Fatalf("error connecting to stocks client: %v", err)
 	}
 
 	alpaca.SubscribeToTrades(func(t marketdata.Trade) {
 		tradeChannel <- t
-	}, cfg.Symbols)
+	})
 
 	// mock trades
 	tradeChannel <- marketdata.Trade{

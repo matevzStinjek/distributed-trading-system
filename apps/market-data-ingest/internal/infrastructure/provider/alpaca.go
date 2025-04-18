@@ -4,14 +4,16 @@ import (
 	"context"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
 type AlpacaClient struct {
-	client *stream.StocksClient
+	client  *stream.StocksClient
+	symbols []string
 }
 
-func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade), symbols []string) {
+func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade)) {
 	mc.client.SubscribeToTrades(func(t stream.Trade) {
 		handler(marketdata.Trade{
 			ID:        t.ID,
@@ -20,16 +22,21 @@ func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade), symb
 			Size:      t.Size,
 			Timestamp: t.Timestamp,
 		})
-	}, symbols...)
+	}, mc.symbols...)
 }
 
-func NewAlpacaClient(ctx context.Context) (*AlpacaClient, error) {
+func (mc *AlpacaClient) UnsubscribeFromTrades() error {
+	return mc.client.UnsubscribeFromTrades(mc.symbols...)
+}
+
+func NewAlpacaClient(ctx context.Context, cfg *config.Config) (*AlpacaClient, error) {
 	client := stream.NewStocksClient("iex")
 	if err := client.Connect(ctx); err != nil {
 		return nil, err
 	}
 
 	return &AlpacaClient{
-		client: client,
+		client:  client,
+		symbols: cfg.Symbols,
 	}, nil
 }
