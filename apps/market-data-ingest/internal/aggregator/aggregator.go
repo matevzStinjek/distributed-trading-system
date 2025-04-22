@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	"context"
+	"log"
 	"sync"
 	"time"
 
@@ -11,15 +12,21 @@ import (
 
 type TradeAggregator struct {
 	mutex        sync.Mutex
-	latestPrices map[string]marketdata.Trade
-	cfg          config.Config
+	latestTrades map[string]marketdata.Trade
+	cfg          *config.Config
 }
 
 func (ta *TradeAggregator) Start(
 	ctx context.Context,
 	rawTradesChan <-chan marketdata.Trade,
-	logChan chan marketdata.Trade,
+	processedTradesChan chan<- marketdata.Trade,
+	wg *sync.WaitGroup,
 ) {
+	defer func() {
+		close(processedTradesChan)
+		wg.Done()
+	}()
+
 	ticker := time.NewTicker(ta.cfg.AggregatorInterval)
 	defer ticker.Stop()
 
@@ -27,26 +34,48 @@ func (ta *TradeAggregator) Start(
 		select {
 		case trade, ok := <-rawTradesChan:
 			if !ok {
-				ta.flushPrices()
+				ta.flushPrices(processedTradesChan)
 				return
 			}
-			// update price
+			// update trade
 			ta.mutex.Lock()
-			ta.latestPrices[trade.Symbol] = trade
+			ta.latestTrades[trade.Symbol] = trade
 			ta.mutex.Unlock()
 
-			// relay trade to log
-			logChan <- trade
-
 		case <-ticker.C:
-			ta.flushPrices()
+			ta.flushPrices(processedTradesChan)
 		case <-ctx.Done():
-			ta.flushPrices()
+			ta.flushPrices(processedTradesChan)
 			return
 		}
 	}
 }
 
-func (ta *TradeAggregator) flushPrices() {
+func (ta *TradeAggregator) flushPrices(processedTradesChan chan<- marketdata.Trade) {
+	if len(ta.latestTrades) == 0 {
+		return
+	}
 
+	ta.mutex.Lock()
+	tradesToSend := make([]marketdata.Trade, 0, len(ta.latestTrades))
+	for _, trade := range ta.latestTrades {
+		tradesToSend = append(tradesToSend, trade)
+	}
+	ta.latestTrades = make(map[string]marketdata.Trade)
+	ta.mutex.Unlock()
+
+	for _, trade := range tradesToSend {
+		select {
+		case processedTradesChan <- trade:
+		default:
+			log.Printf("WARN: processedTradesChan full, dropping trade")
+		}
+	}
+}
+
+func NewTradeAggregator(cfg *config.Config) *TradeAggregator {
+	return &TradeAggregator{
+		latestTrades: make(map[string]marketdata.Trade),
+		cfg:          cfg,
+	}
 }
