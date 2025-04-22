@@ -21,7 +21,7 @@ func (ta *TradeAggregator) Start(
 	rawTradesChan <-chan marketdata.Trade,
 	processedTradesChan chan<- marketdata.Trade,
 	wg *sync.WaitGroup,
-) {
+) error {
 	defer func() {
 		close(processedTradesChan)
 		wg.Done()
@@ -35,7 +35,7 @@ func (ta *TradeAggregator) Start(
 		case trade, ok := <-rawTradesChan:
 			if !ok {
 				ta.flushPrices(processedTradesChan)
-				return
+				return nil
 			}
 			// update trade
 			ta.mutex.Lock()
@@ -46,7 +46,7 @@ func (ta *TradeAggregator) Start(
 			ta.flushPrices(processedTradesChan)
 		case <-ctx.Done():
 			ta.flushPrices(processedTradesChan)
-			return
+			return ctx.Err()
 		}
 	}
 }
