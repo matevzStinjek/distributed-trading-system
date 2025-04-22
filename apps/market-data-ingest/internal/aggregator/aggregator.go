@@ -16,6 +16,13 @@ type TradeAggregator struct {
 	cfg          *config.Config
 }
 
+func NewTradeAggregator(cfg *config.Config) *TradeAggregator {
+	return &TradeAggregator{
+		latestTrades: make(map[string]marketdata.Trade),
+		cfg:          cfg,
+	}
+}
+
 func (ta *TradeAggregator) Start(
 	ctx context.Context,
 	rawTradesChan <-chan marketdata.Trade,
@@ -70,12 +77,5 @@ func (ta *TradeAggregator) flushPrices(processedTradesChan chan<- marketdata.Tra
 		default:
 			log.Printf("WARN: processedTradesChan full, dropping trade")
 		}
-	}
-}
-
-func NewTradeAggregator(cfg *config.Config) *TradeAggregator {
-	return &TradeAggregator{
-		latestTrades: make(map[string]marketdata.Trade),
-		cfg:          cfg,
 	}
 }
