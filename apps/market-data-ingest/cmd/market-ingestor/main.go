@@ -32,7 +32,7 @@ func run(
 	defer cancel()
 
 	logger.Info("loading configuration")
-	cfg, err := appConfig.LoadConfig(getenv)
+	cfg, err := appConfig.LoadConfig(getenv, logger)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func run(
 
 	err = alpaca.SubscribeToTrades(func(t marketdata.Trade) {
 		logger.Debug("trade received", slog.Any("trade", t))
-		// rawTradeChan <- t
+		rawTradeChan <- t
 	})
 	if err != nil {
 		return err

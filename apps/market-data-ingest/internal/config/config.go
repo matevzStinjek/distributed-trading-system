@@ -1,7 +1,8 @@
 package config
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -34,16 +35,20 @@ type Config struct {
 	KafkaChanBuff      int // 1k-10k
 }
 
-func LoadConfig(getenv func(string) string) (*Config, error) {
-	aggregatorIntervalMs, err := strconv.Atoi(getenv("AGGREGATOR_INTERVAL_MS"))
+func LoadConfig(getenv func(string) string, logger *slog.Logger) (*Config, error) {
+	aggregatorIntervalMsStr := getenv("AGGREGATOR_INTERVAL_MS")
+	aggregatorIntervalMs, err := strconv.Atoi(aggregatorIntervalMsStr)
 	if err != nil || aggregatorIntervalMs < AGG_INTERVAL_MS_MIN {
-		log.Printf("AGGREGATOR_INTERVAL_MS couldn't be parsed to a number or is less than %d, defaulting to %d", AGG_INTERVAL_MS_MIN, AGG_INTERVAL_MS_DEFAULT)
+		logger.Warn("AGGREGATOR_INTERVAL_MS invalid, defaulting",
+			slog.String("value", aggregatorIntervalMsStr),
+			slog.Int("min_ms", AGG_INTERVAL_MS_MIN),
+			slog.Int("default_ms", AGG_INTERVAL_MS_DEFAULT))
 		aggregatorIntervalMs = AGG_INTERVAL_MS_DEFAULT
 	}
 
 	redisCacheDB, err := strconv.Atoi(getenv("REDIS_CACHE_DB"))
 	if err != nil {
-		log.Fatalf("REDIS_CACHE_DB can't be parsed to a number: %v", err)
+		return nil, fmt.Errorf("REDIS_CACHE_DB can't be parsed to a number: %v", err)
 	}
 
 	cfg := &Config{
