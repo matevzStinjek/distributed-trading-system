@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
@@ -16,6 +17,7 @@ type TradeProcessor struct {
 	cacheClient  *redis.RedisClient
 	pubsubClient *redis.RedisClient
 	logger       *slog.Logger
+	wg           *sync.WaitGroup
 }
 
 func NewTradeProcessor(
@@ -45,17 +47,23 @@ func (tp *TradeProcessor) Start(
 		case trade, ok := <-tradeChannel:
 			if !ok {
 				tp.logger.Info("trade channel closed, processor stopping...")
-				// tp.wg.Wait()
+				tp.wg.Wait()
 				tp.logger.Info("all pending trade processing finished")
 				return nil
 			}
-			err := tp.processTrade(ctx, trade, bgTradesChan)
-			if err != nil {
-				tp.logger.Error("error processing trade", slog.Any("error", err))
-			}
+
+			tp.wg.Add(1)
+			go func(trade marketdata.Trade) {
+				defer tp.wg.Done()
+				err := tp.processTrade(ctx, trade, bgTradesChan)
+				if err != nil {
+					tp.logger.Error("error processing trade", slog.Any("error", err))
+				}
+			}(trade)
+
 		case <-ctx.Done():
 			tp.logger.Info("Processor context cancelled, stopping...")
-			// tp.wg.Wait()
+			tp.wg.Wait()
 			tp.logger.Info("All pending trade processing finished due to context cancellation.")
 			return nil
 		}
