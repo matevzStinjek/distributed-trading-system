@@ -13,6 +13,18 @@ type AlpacaClient struct {
 	symbols []string
 }
 
+func NewAlpacaClient(ctx context.Context, cfg *config.Config) (*AlpacaClient, error) {
+	client := stream.NewStocksClient("iex")
+	if err := client.Connect(ctx); err != nil {
+		return nil, err
+	}
+
+	return &AlpacaClient{
+		client:  client,
+		symbols: cfg.Symbols,
+	}, nil
+}
+
 func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade)) error {
 	return mc.client.SubscribeToTrades(func(t stream.Trade) {
 		handler(marketdata.Trade{
@@ -27,16 +39,4 @@ func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade)) erro
 
 func (mc *AlpacaClient) UnsubscribeFromTrades() error {
 	return mc.client.UnsubscribeFromTrades(mc.symbols...)
-}
-
-func NewAlpacaClient(ctx context.Context, cfg *config.Config) (*AlpacaClient, error) {
-	client := stream.NewStocksClient("iex")
-	if err := client.Connect(ctx); err != nil {
-		return nil, err
-	}
-
-	return &AlpacaClient{
-		client:  client,
-		symbols: cfg.Symbols,
-	}, nil
 }

@@ -14,6 +14,22 @@ type SaramaAsyncProducer struct {
 	Topic    string
 }
 
+func NewKafkaAsyncProducer(cfg *config.Config) (*SaramaAsyncProducer, error) {
+	config := sarama.NewConfig()
+	config.Producer.RequiredAcks = sarama.WaitForLocal
+	config.Producer.Compression = sarama.CompressionSnappy
+	config.Producer.Return.Errors = true
+
+	producer, err := sarama.NewAsyncProducer(cfg.KafkaBrokers, config)
+	if err != nil {
+		return nil, err
+	}
+	return &SaramaAsyncProducer{
+		Producer: producer,
+		Topic:    cfg.KafkaTopicMarketData,
+	}, nil
+}
+
 func (p *SaramaAsyncProducer) Produce(t marketdata.Trade) error {
 	bytes, err := json.Marshal(t)
 	if err != nil {
@@ -29,20 +45,4 @@ func (p *SaramaAsyncProducer) Produce(t marketdata.Trade) error {
 	}
 	p.Producer.Input() <- message
 	return nil
-}
-
-func NewKafkaAsyncProducer(cfg *config.Config) (*SaramaAsyncProducer, error) {
-	config := sarama.NewConfig()
-	config.Producer.RequiredAcks = sarama.WaitForLocal
-	config.Producer.Compression = sarama.CompressionSnappy
-	config.Producer.Return.Errors = true
-
-	producer, err := sarama.NewAsyncProducer(cfg.KafkaBrokers, config)
-	if err != nil {
-		return nil, err
-	}
-	return &SaramaAsyncProducer{
-		Producer: producer,
-		Topic:    cfg.KafkaTopicMarketData,
-	}, nil
 }
