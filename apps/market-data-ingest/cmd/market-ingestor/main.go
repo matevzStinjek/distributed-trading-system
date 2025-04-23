@@ -2,99 +2,177 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"sync"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
-	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/aggregator"
+	appConfig "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	kafkaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/provider"
-	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
+	redisInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
+	"golang.org/x/sync/errgroup"
 )
 
-func main() {
-	go func() {
-		http.ListenAndServe(":6060", nil)
-	}()
-
-	// setup context and config
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+func run(
+	ctx context.Context,
+	getenv func(string) string,
+	logger *slog.Logger,
+) error {
+	// --- Setup context and config ---
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, err := config.LoadConfig()
+	logger.Info("loading configuration")
+	cfg, err := appConfig.LoadConfig(getenv)
 	if err != nil {
-		log.Fatalf("error loading config: %v", err)
+		return err
 	}
 
-	// setup clients
-	cacheClient, err := redis.NewRedisCacheClient(ctx, cfg)
+	// --- Pprof ---
+	go func() {
+		logger.Info("Starting pprof server")
+		if err := http.ListenAndServe(":6060", nil); err != nil {
+			logger.Warn("Pprof server error", slog.Any("error", err))
+		}
+	}()
+
+	// --- Init infra clients ---
+	logger.Info("connecting to redis cache")
+	cacheClient, err := redisInfra.NewRedisCacheClient(ctx, cfg)
 	if err != nil {
-		log.Fatalf("error pinging redis cache instance: %v", err)
+		return fmt.Errorf("couldnt init cache client: %w", err)
 	}
 	defer cacheClient.Client.Close()
 
-	pubsubClient, err := redis.NewRedisPubsubClient(ctx, cfg)
+	logger.Info("connecting to redis pubsub")
+	pubsubClient, err := redisInfra.NewRedisPubsubClient(ctx, cfg)
 	if err != nil {
-		log.Fatalf("error pinging redis pubsub instance: %v", err)
+		return fmt.Errorf("couldnt init pubsub client: %w", err)
 	}
 	defer pubsubClient.Client.Close()
 
-	saramaProducer, err := kafka.NewKafkaAsyncProducer(cfg)
+	logger.Info("producer connecting to kafka")
+	saramaProducer, err := kafkaInfra.NewKafkaAsyncProducer(cfg)
 	if err != nil {
-		log.Fatalf("error creating sarama async producer: %v", err)
+		return err
 	}
 	defer saramaProducer.Producer.Close()
 
-	// setup tradeProcessor, channel, and start consuming channel
-	tradeProcessor := processor.NewTradeProcessor(cacheClient, pubsubClient, saramaProducer)
+	// --- Setup channels ---
+	rawTradeChan := make(chan marketdata.Trade, cfg.RawTradesChanBuff)
+	processedTradesChan := make(chan marketdata.Trade, cfg.ProcTradesChanBuff)
+	backgroundTradesChan := make(chan marketdata.Trade, cfg.KafkaChanBuff)
 
-	tradeChannel := make(chan marketdata.Trade, cfg.TradeChannelBuff)
+	// --- Setup core components
+	aggregator := aggregator.NewTradeAggregator(cfg, logger.With("component", "aggregator"))
+	processor := processor.NewTradeProcessor(cacheClient, pubsubClient, logger.With("component", "processor"))
 
-	var consumeWg sync.WaitGroup
-	consumeWg.Add(1)
-	go func() {
-		defer consumeWg.Done()
-		tradeProcessor.Start(ctx, tradeChannel)
-	}()
+	// --- Start core components
+	g, ctx := errgroup.WithContext(ctx)
 
-	// setup stocks client
-	alpaca, err := provider.NewAlpacaClient(ctx, cfg)
-	if err != nil {
-		log.Fatalf("error connecting to stocks client: %v", err)
-	}
-
-	alpaca.SubscribeToTrades(func(t marketdata.Trade) {
-		tradeChannel <- t
+	g.Go(func() error {
+		return aggregator.Start(ctx, rawTradeChan, processedTradesChan)
 	})
 
+	g.Go(func() error {
+		return processor.Start(ctx, processedTradesChan, backgroundTradesChan)
+	})
+
+	// --- Setup stocks client ---
+	logger.Info("connecting to alpaca")
+	alpaca, err := provider.NewAlpacaClient(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = alpaca.SubscribeToTrades(func(t marketdata.Trade) {
+		logger.Debug("trade received", slog.Any("trade", t))
+		// rawTradeChan <- t
+	})
+	if err != nil {
+		return err
+	}
+
 	// mock trades
-	tradeChannel <- marketdata.Trade{
+	rawTradeChan <- marketdata.Trade{
 		ID:        1,
 		Symbol:    "MSFT",
 		Price:     1,
 		Size:      1,
 		Timestamp: time.Now(),
 	}
-	tradeChannel <- marketdata.Trade{
+	rawTradeChan <- marketdata.Trade{
 		ID:        2,
 		Symbol:    "MSFT",
-		Price:     1,
+		Price:     2,
 		Size:      1,
 		Timestamp: time.Now(),
 	}
 
-	<-ctx.Done()
-	if err = alpaca.UnsubscribeFromTrades(); err != nil {
-		log.Printf("failed to unsubscribe from alpaca trades: %v", err)
+	if err = g.Wait(); err != nil {
+		logger.Error("goroutine error", slog.Any("error", err))
+	} else {
+		logger.Info("received shutdown signal")
 	}
 
-	close(tradeChannel)
-	consumeWg.Done()
+	if err = alpaca.UnsubscribeFromTrades(); err != nil {
+		logger.Warn("failed to unsubscribe from alpaca trades", slog.Any("error", err))
+	} else {
+		logger.Info("unsubscribed from alpaca trades")
+	}
+
+	close(rawTradeChan)
+	logger.Info("rawTradeChan closed")
+
+	return err
+}
+
+func main() {
+	ctx := context.Background()
+
+	logger := getLoggerFromEnv()
+
+	if err := run(ctx, os.Getenv, logger); err != nil {
+		logger.Error("application error", slog.Any("error", err))
+		os.Exit(1)
+	}
+	logger.Info("application shut down gracefully")
+}
+
+// util
+func getLoggerFromEnv() *slog.Logger {
+	var logLevel slog.Level
+	switch strings.ToLower(os.Getenv("LOG_LEVEL")) {
+	case "error":
+		logLevel = slog.LevelError
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "debug":
+		logLevel = slog.LevelDebug
+	default:
+		logLevel = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: logLevel,
+	}
+
+	var handler slog.Handler
+	switch strings.ToLower(os.Getenv("LOG_FORMAT")) {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stderr, opts)
+	default:
+		handler = slog.NewTextHandler(os.Stderr, opts)
+	}
+
+	return slog.New(handler)
 }

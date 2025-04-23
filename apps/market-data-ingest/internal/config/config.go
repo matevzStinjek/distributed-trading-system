@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	AGG_INTERVAL_MS_DEFAULT = 50
+	AGG_INTERVAL_MS_DEFAULT = 100
 	AGG_INTERVAL_MS_MIN     = 10
 )
 

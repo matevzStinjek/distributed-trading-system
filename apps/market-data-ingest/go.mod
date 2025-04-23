@@ -7,6 +7,7 @@ require github.com/alpacahq/alpaca-trade-api-go/v3 v3.8.1
 require (
 	cloud.google.com/go v0.120.1 // indirect
 	github.com/IBM/sarama v1.45.1 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coder/websocket v1.8.12 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -34,4 +35,5 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
 )

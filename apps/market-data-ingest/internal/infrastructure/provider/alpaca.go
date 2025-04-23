@@ -13,8 +13,8 @@ type AlpacaClient struct {
 	symbols []string
 }
 
-func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade)) {
-	mc.client.SubscribeToTrades(func(t stream.Trade) {
+func (mc *AlpacaClient) SubscribeToTrades(handler func(t marketdata.Trade)) error {
+	return mc.client.SubscribeToTrades(func(t stream.Trade) {
 		handler(marketdata.Trade{
 			ID:        t.ID,
 			Symbol:    t.Symbol,
