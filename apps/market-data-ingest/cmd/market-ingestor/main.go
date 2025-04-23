@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -80,11 +81,19 @@ func run(
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return aggregator.Start(ctx, rawTradeChan, processedTradesChan)
+		err := aggregator.Start(ctx, rawTradeChan, processedTradesChan)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("aggregator error: %w", err)
+		}
+		return err
 	})
 
 	g.Go(func() error {
-		return processor.Start(ctx, processedTradesChan, backgroundTradesChan)
+		err := processor.Start(ctx, processedTradesChan, backgroundTradesChan)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("processor error: %w", err)
+		}
+		return err
 	})
 
 	// --- Setup stocks client ---
