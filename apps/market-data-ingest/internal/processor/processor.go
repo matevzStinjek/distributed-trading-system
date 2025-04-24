@@ -102,6 +102,9 @@ func (tp *TradeProcessor) processTrade(ctx context.Context, trade marketdata.Tra
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("trade processing encountered an error: %w", err)
 	}
+	tp.logger.Debug("Published price updates to redis",
+		slog.String("Symbol", trade.Symbol),
+		slog.Int("Price", int(trade.Price)))
 
 	return nil
 }

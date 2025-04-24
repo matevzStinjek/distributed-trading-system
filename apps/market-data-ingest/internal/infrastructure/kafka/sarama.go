@@ -58,7 +58,7 @@ func (p *SaramaSyncProducer) Produce(ctx context.Context, t marketdata.Trade) (i
 		return -1, -1, err
 	}
 
-	p.logger.Debug("Successfully produced message to Kafka",
+	p.logger.Debug("produced message to Kafka",
 		slog.String("symbol", t.Symbol),
 		slog.Int("partition", int(partition)),
 		slog.Int64("offset", offset),
