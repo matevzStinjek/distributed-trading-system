@@ -18,6 +18,7 @@ import (
 	alpacaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/alpaca"
 	kafkaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
 	redisInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/ingestor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 	"golang.org/x/sync/errgroup"
@@ -75,17 +76,34 @@ func run(
 	}
 	defer saramaProducer.Producer.Close()
 
+	// --- Setup stocks client ---
+	logger.Info("connecting to alpaca")
+	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer alpaca.Close()
+
 	// --- Setup channels ---
 	rawTradeChan := make(chan marketdata.Trade, cfg.RawTradesChanBuff)
 	processedTradesChan := make(chan marketdata.Trade, cfg.ProcTradesChanBuff)
 	backgroundTradesChan := make(chan marketdata.Trade, cfg.KafkaChanBuff)
 
 	// --- Setup core components
+	ingestor := ingestor.NewTradeIngestor(alpaca, cfg, logger.With("component", "ingestor"))
 	aggregator := aggregator.NewTradeAggregator(cfg, logger.With("component", "aggregator"))
 	processor := processor.NewTradeProcessor(cacheClient, pubsubClient, logger.With("component", "processor"))
 
 	// --- Start core components
 	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		err := processor.Start(ctx, processedTradesChan, backgroundTradesChan)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("processor error: %w", err)
+		}
+		return err
+	})
 
 	g.Go(func() error {
 		err := aggregator.Start(ctx, rawTradeChan, processedTradesChan)
@@ -96,27 +114,12 @@ func run(
 	})
 
 	g.Go(func() error {
-		err := processor.Start(ctx, processedTradesChan, backgroundTradesChan)
+		err := ingestor.Start(ctx, rawTradeChan)
 		if err != nil && !errors.Is(err, context.Canceled) {
-			return fmt.Errorf("processor error: %w", err)
+			return fmt.Errorf("ingestor error: %w", err)
 		}
 		return err
 	})
-
-	// --- Setup stocks client ---
-	logger.Info("connecting to alpaca")
-	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg)
-	if err != nil {
-		return err
-	}
-
-	err = alpaca.SubscribeToTrades(func(t marketdata.Trade) {
-		logger.Debug("trade received", slog.Any("trade", t))
-		rawTradeChan <- t
-	})
-	if err != nil {
-		return err
-	}
 
 	// mock trades
 	rawTradeChan <- marketdata.Trade{
@@ -139,15 +142,6 @@ func run(
 	} else {
 		logger.Info("received shutdown signal")
 	}
-
-	if err = alpaca.UnsubscribeFromTrades(); err != nil {
-		logger.Warn("failed to unsubscribe from alpaca trades", slog.Any("error", err))
-	} else {
-		logger.Info("unsubscribed from alpaca trades")
-	}
-
-	close(rawTradeChan)
-	logger.Info("rawTradeChan closed")
 
 	return err
 }

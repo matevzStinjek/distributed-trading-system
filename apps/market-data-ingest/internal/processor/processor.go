@@ -29,6 +29,7 @@ func NewTradeProcessor(
 		cacheClient:  cacheClient,
 		pubsubClient: pubsubClient,
 		logger:       logger,
+		wg:           &sync.WaitGroup{},
 	}
 }
 
