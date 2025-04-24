@@ -9,7 +9,7 @@ import (
 )
 
 type RedisCacheClient struct {
-	Client *redis.Client
+	client *redis.Client
 }
 
 func NewRedisCacheClient(ctx context.Context, cfg *config.Config) (*RedisCacheClient, error) {
@@ -28,6 +28,14 @@ func NewRedisCacheClient(ctx context.Context, cfg *config.Config) (*RedisCacheCl
 	}
 
 	return &RedisCacheClient{
-		Client: client,
+		client: client,
 	}, nil
+}
+
+func (r *RedisCacheClient) Set(ctx context.Context, key string, value any, exp time.Duration) error {
+	return r.client.Set(ctx, key, value, exp).Err()
+}
+
+func (r *RedisCacheClient) Close() error {
+	return r.client.Close()
 }

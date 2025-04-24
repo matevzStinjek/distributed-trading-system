@@ -9,19 +9,20 @@ import (
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/utils"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 	"golang.org/x/sync/errgroup"
 )
 
 type TradeProcessor struct {
-	cacheClient  *redis.RedisCacheClient
+	cacheClient  interfaces.CacheClient
 	pubsubClient *redis.RedisPubsubClient
 	logger       *slog.Logger
 	wg           *sync.WaitGroup
 }
 
 func NewTradeProcessor(
-	cacheClient *redis.RedisCacheClient,
+	cacheClient interfaces.CacheClient,
 	pubsubClient *redis.RedisPubsubClient,
 	logger *slog.Logger,
 ) *TradeProcessor {
@@ -80,7 +81,7 @@ func (tp *TradeProcessor) processTrade(ctx context.Context, trade marketdata.Tra
 
 	g.Go(func() error {
 		op := func(ctx context.Context) error {
-			return tp.cacheClient.Client.Set(ctx, key, trade.Price, 0).Err()
+			return tp.cacheClient.Set(ctx, key, trade.Price, 0)
 		}
 		return utils.RetryWithDefault(ctx, op, tp.logger)
 	})

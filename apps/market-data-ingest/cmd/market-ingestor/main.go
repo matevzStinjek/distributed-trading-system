@@ -59,7 +59,7 @@ func run(
 	if err != nil {
 		return fmt.Errorf("couldnt init cache client: %w", err)
 	}
-	defer cacheClient.Client.Close()
+	defer cacheClient.Close()
 
 	logger.Info("connecting to redis pubsub")
 	pubsubClient, err := redisInfra.NewRedisPubsubClient(ctx, cfg)
