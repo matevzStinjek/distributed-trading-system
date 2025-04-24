@@ -3,6 +3,8 @@ package interfaces
 import (
 	"context"
 	"time"
+
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
 type CacheClient interface {
@@ -12,5 +14,10 @@ type CacheClient interface {
 
 type PubsubClient interface {
 	Publish(context.Context, string, any) error
+	Close() error
+}
+
+type MarketDataClient interface {
+	SubscribeToSymbols(context.Context, chan<- marketdata.Trade, []string) error
 	Close() error
 }
