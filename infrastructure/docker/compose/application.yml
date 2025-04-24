@@ -46,3 +46,14 @@ services:
       - ../../../apps/market-data-ingest:/app
     ports:
       - "15060:6060" # pprof
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started      
+      redis-pubsub:
+        condition: service_started      
