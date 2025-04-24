@@ -15,8 +15,8 @@ import (
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/aggregator"
 	appConfig "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	alpacaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/alpaca"
 	kafkaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
-	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/provider"
 	redisInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -105,7 +105,7 @@ func run(
 
 	// --- Setup stocks client ---
 	logger.Info("connecting to alpaca")
-	alpaca, err := provider.NewAlpacaClient(ctx, cfg)
+	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg)
 	if err != nil {
 		return err
 	}
