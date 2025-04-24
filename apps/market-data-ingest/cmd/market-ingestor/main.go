@@ -41,7 +41,14 @@ func run(
 	// --- Pprof ---
 	go func() {
 		logger.Info("Starting pprof server")
-		if err := http.ListenAndServe(":6060", nil); err != nil {
+		srv := &http.Server{Addr: "6060"}
+
+		go func() {
+			<-ctx.Done()
+			srv.Shutdown(context.Background())
+		}()
+
+		if err := srv.ListenAndServe(); err != nil {
 			logger.Warn("Pprof server error", slog.Any("error", err))
 		}
 	}()
