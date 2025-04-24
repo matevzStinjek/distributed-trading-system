@@ -9,7 +9,7 @@ import (
 )
 
 type RedisPubsubClient struct {
-	Client *redis.Client
+	client *redis.Client
 }
 
 func NewRedisPubsubClient(ctx context.Context, cfg *config.Config) (*RedisPubsubClient, error) {
@@ -27,6 +27,14 @@ func NewRedisPubsubClient(ctx context.Context, cfg *config.Config) (*RedisPubsub
 	}
 
 	return &RedisPubsubClient{
-		Client: client,
+		client: client,
 	}, nil
+}
+
+func (r *RedisPubsubClient) Publish(ctx context.Context, channel string, value any) error {
+	return r.client.Publish(ctx, channel, value).Err()
+}
+
+func (r *RedisPubsubClient) Close() error {
+	return r.client.Close()
 }

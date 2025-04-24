@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/utils"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -16,14 +15,14 @@ import (
 
 type TradeProcessor struct {
 	cacheClient  interfaces.CacheClient
-	pubsubClient *redis.RedisPubsubClient
+	pubsubClient interfaces.PubsubClient
 	logger       *slog.Logger
 	wg           *sync.WaitGroup
 }
 
 func NewTradeProcessor(
 	cacheClient interfaces.CacheClient,
-	pubsubClient *redis.RedisPubsubClient,
+	pubsubClient interfaces.PubsubClient,
 	logger *slog.Logger,
 ) *TradeProcessor {
 	return &TradeProcessor{
@@ -88,7 +87,7 @@ func (tp *TradeProcessor) processTrade(ctx context.Context, trade marketdata.Tra
 
 	g.Go(func() error {
 		op := func(ctx context.Context) error {
-			return tp.pubsubClient.Client.Publish(ctx, key, trade.Price).Err()
+			return tp.pubsubClient.Publish(ctx, key, trade.Price)
 		}
 		return utils.RetryWithDefault(ctx, op, tp.logger)
 	})

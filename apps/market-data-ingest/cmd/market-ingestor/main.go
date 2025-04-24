@@ -66,7 +66,7 @@ func run(
 	if err != nil {
 		return fmt.Errorf("couldnt init pubsub client: %w", err)
 	}
-	defer pubsubClient.Client.Close()
+	defer pubsubClient.Close()
 
 	logger.Info("producer connecting to kafka")
 	saramaProducer, err := kafkaInfra.NewKafkaAsyncProducer(cfg)
