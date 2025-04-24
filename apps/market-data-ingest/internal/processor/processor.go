@@ -14,15 +14,15 @@ import (
 )
 
 type TradeProcessor struct {
-	cacheClient  *redis.RedisClient
-	pubsubClient *redis.RedisClient
+	cacheClient  *redis.RedisCacheClient
+	pubsubClient *redis.RedisPubsubClient
 	logger       *slog.Logger
 	wg           *sync.WaitGroup
 }
 
 func NewTradeProcessor(
-	cacheClient *redis.RedisClient,
-	pubsubClient *redis.RedisClient,
+	cacheClient *redis.RedisCacheClient,
+	pubsubClient *redis.RedisPubsubClient,
 	logger *slog.Logger,
 ) *TradeProcessor {
 	return &TradeProcessor{
