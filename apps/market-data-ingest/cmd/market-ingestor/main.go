@@ -20,6 +20,7 @@ import (
 	redisInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/ingestor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/producer"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 	"golang.org/x/sync/errgroup"
 )
@@ -70,15 +71,15 @@ func run(
 	defer pubsubClient.Close()
 
 	logger.Info("producer connecting to kafka")
-	saramaProducer, err := kafkaInfra.NewKafkaAsyncProducer(cfg)
+	saramaProducer, err := kafkaInfra.NewKafkaAsyncProducer(cfg, logger.With("component", "sarama"))
 	if err != nil {
 		return err
 	}
-	defer saramaProducer.Producer.Close()
+	defer saramaProducer.Close()
 
 	// --- Setup stocks client ---
 	logger.Info("connecting to alpaca")
-	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg, logger)
+	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg, logger.With("component", "alpaca"))
 	if err != nil {
 		return err
 	}
@@ -93,9 +94,18 @@ func run(
 	ingestor := ingestor.NewTradeIngestor(alpaca, cfg, logger.With("component", "ingestor"))
 	aggregator := aggregator.NewTradeAggregator(cfg, logger.With("component", "aggregator"))
 	processor := processor.NewTradeProcessor(cacheClient, pubsubClient, logger.With("component", "processor"))
+	worker := producer.NewKafkaWorker(saramaProducer, logger.With("component", "worker"))
 
 	// --- Start core components
 	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		err := worker.Start(ctx, backgroundTradesChan)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("worker error: %w", err)
+		}
+		return err
+	})
 
 	g.Go(func() error {
 		err := processor.Start(ctx, processedTradesChan, backgroundTradesChan)

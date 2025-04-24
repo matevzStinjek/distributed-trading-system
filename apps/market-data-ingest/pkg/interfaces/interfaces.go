@@ -21,3 +21,8 @@ type MarketDataClient interface {
 	SubscribeToSymbols(context.Context, chan<- marketdata.Trade, []string) error
 	Close() error
 }
+
+type KafkaProducer interface {
+	Produce(ctx context.Context, trade marketdata.Trade) (partition int32, offset int64, err error)
+	Close() error
+}
