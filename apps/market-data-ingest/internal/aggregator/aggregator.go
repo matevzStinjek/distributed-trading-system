@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
@@ -38,6 +39,23 @@ func (ta *TradeAggregator) Start(
 	ticker := time.NewTicker(ta.cfg.AggregatorInterval)
 	defer ticker.Stop()
 
+	// Start a separate goroutine to update the map size metric
+	go func() {
+		mapSizeTicker := time.NewTicker(5 * time.Second)
+		defer mapSizeTicker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-mapSizeTicker.C:
+				ta.mutex.Lock()
+				metrics.AggregatorMapSize.Set(float64(len(ta.latestTrades)))
+				ta.mutex.Unlock()
+			}
+		}
+	}()
+
 	for {
 		select {
 		case trade, ok := <-rawTradesChan:
@@ -65,20 +83,33 @@ func (ta *TradeAggregator) flushPrices(processedTradesChan chan<- marketdata.Tra
 		return
 	}
 
+	// Use a timer to measure flush duration
+	timer := metrics.NewTimer(metrics.AggregationDuration)
+	defer timer.ObserveDuration()
+
 	ta.mutex.Lock()
 	tradesToSend := make([]marketdata.Trade, 0, len(ta.latestTrades))
 	for _, trade := range ta.latestTrades {
 		tradesToSend = append(tradesToSend, trade)
 	}
+	mapSize := len(ta.latestTrades)
 	ta.latestTrades = make(map[string]marketdata.Trade)
 	ta.mutex.Unlock()
+
+	// Set the aggregator map size metric immediately after clearing
+	metrics.AggregatorMapSize.Set(0)
 
 	ta.logger.Debug("flushing trades", slog.Any("trades", tradesToSend))
 	for _, trade := range tradesToSend {
 		select {
 		case processedTradesChan <- trade:
+			// Increment the aggregated trades counter
+			metrics.TradesAggregatedTotal.Inc()
 		default:
 			ta.logger.Warn("processedTradesChan full, dropping trade", slog.Any("trade", trade))
 		}
 	}
+
+	// Log the number of trades aggregated
+	ta.logger.Debug("trades aggregated", slog.Int("count", mapSize))
 }

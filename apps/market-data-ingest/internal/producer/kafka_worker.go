@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
@@ -36,9 +37,18 @@ func (kw *KafkaWorker) Start(ctx context.Context, tradeChan <-chan marketdata.Tr
 				return nil
 			}
 
+			// Track Kafka operation attempt
+			metrics.KafkaPublishTotal.Inc()
+
+			// Time the Kafka produce operation
+			timer := metrics.NewTimer(metrics.KafkaOperationDuration)
 			partition, offset, err := kw.producer.Produce(ctx, trade)
+			timer.ObserveDuration()
 
 			if err != nil {
+				// Increment error counter on failure
+				metrics.KafkaPublishErrorsTotal.Inc()
+
 				kw.logger.Error("Failed to produce message after producer's internal retries",
 					slog.Any("error", err),
 					slog.String("symbol", trade.Symbol),

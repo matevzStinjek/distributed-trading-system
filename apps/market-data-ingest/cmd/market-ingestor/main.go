@@ -19,9 +19,11 @@ import (
 	kafkaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
 	redisInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/ingestor"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/producer"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -40,18 +42,34 @@ func run(
 		return err
 	}
 
-	// --- Pprof ---
+	// --- Start runtime metrics collector ---
+	logger.Info("starting metrics collector")
+	stopMetricsCollector := metrics.StartRuntimeMetricsCollector(ctx, 15*time.Second)
+	defer stopMetricsCollector()
+
+	// --- Setup HTTP server for pprof and metrics ---
+	mux := http.NewServeMux()
+
+	// Register pprof handlers (they register with http.DefaultServeMux)
+	// Register Prometheus metrics endpoint
+	mux.Handle("/metrics", promhttp.Handler())
+
 	go func() {
-		logger.Info("Starting pprof server")
-		srv := &http.Server{Addr: "6060"}
+		logger.Info("Starting HTTP server for pprof and metrics", slog.String("addr", ":6060"))
+		srv := &http.Server{
+			Addr:    ":6060",
+			Handler: mux,
+		}
 
 		go func() {
 			<-ctx.Done()
-			srv.Shutdown(context.Background())
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+			srv.Shutdown(shutdownCtx)
 		}()
 
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Warn("Pprof server error", slog.Any("error", err))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Warn("HTTP server error", slog.Any("error", err))
 		}
 	}()
 
@@ -90,11 +108,34 @@ func run(
 	processedTradesChan := make(chan marketdata.Trade, cfg.ProcTradesChanBuff)
 	backgroundTradesChan := make(chan marketdata.Trade, cfg.KafkaChanBuff)
 
+	// Set channel capacity metrics
+	metrics.RawTradesChanCapacity.Set(float64(cfg.RawTradesChanBuff))
+	metrics.ProcessedTradesChanCapacity.Set(float64(cfg.ProcTradesChanBuff))
+	metrics.KafkaChanCapacity.Set(float64(cfg.KafkaChanBuff))
+
 	// --- Setup core components
 	ingestor := ingestor.NewTradeIngestor(alpaca, cfg, logger.With("component", "ingestor"))
 	aggregator := aggregator.NewTradeAggregator(cfg, logger.With("component", "aggregator"))
 	processor := processor.NewTradeProcessor(cacheClient, pubsubClient, logger.With("component", "processor"))
 	worker := producer.NewKafkaWorker(saramaProducer, logger.With("component", "worker"))
+
+	// --- Start channel metrics collector ---
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				// Update channel metrics
+				metrics.RawTradesChanSize.Set(float64(len(rawTradeChan)))
+				metrics.ProcessedTradesChanSize.Set(float64(len(processedTradesChan)))
+				metrics.KafkaChanSize.Set(float64(len(backgroundTradesChan)))
+			}
+		}
+	}()
 
 	// --- Start core components
 	g, ctx := errgroup.WithContext(ctx)

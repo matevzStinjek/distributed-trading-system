@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/utils"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -56,9 +57,16 @@ func (tp *TradeProcessor) Start(
 			tp.wg.Add(1)
 			go func(trade marketdata.Trade) {
 				defer tp.wg.Done()
+				// Start timing the processing operation
+				timer := metrics.NewTimer(metrics.RedisOperationDuration)
+				defer timer.ObserveDuration()
+
 				err := tp.processTrade(ctx, trade, bgTradesChan)
 				if err != nil {
 					tp.logger.Error("error processing trade", slog.Any("error", err))
+				} else {
+					// Increment processed trades counter on success
+					metrics.TradesProcessedTotal.Inc()
 				}
 			}(trade)
 
@@ -81,20 +89,45 @@ func (tp *TradeProcessor) processTrade(ctx context.Context, trade marketdata.Tra
 
 	g.Go(func() error {
 		op := func(ctx context.Context) error {
-			return tp.cacheClient.Set(ctx, key, trade.Price, 0)
+			// Increment the Redis SET attempt counter
+			metrics.RedisSetTotal.Inc()
+
+			// Measure the Redis SET operation duration
+			setTimer := metrics.NewTimer(metrics.RedisOperationDuration)
+			err := tp.cacheClient.Set(ctx, key, trade.Price, 0)
+			setTimer.ObserveDuration()
+
+			if err != nil {
+				// Increment error counter on failure
+				metrics.RedisSetErrorsTotal.Inc()
+			}
+			return err
 		}
 		return utils.RetryWithDefault(ctx, op, tp.logger)
 	})
 
 	g.Go(func() error {
 		op := func(ctx context.Context) error {
-			return tp.pubsubClient.Publish(ctx, key, trade.Price)
+			// Increment the Redis PUBLISH attempt counter
+			metrics.RedisPublishTotal.Inc()
+
+			// Measure the Redis PUBLISH operation duration
+			pubTimer := metrics.NewTimer(metrics.RedisOperationDuration)
+			err := tp.pubsubClient.Publish(ctx, key, trade.Price)
+			pubTimer.ObserveDuration()
+
+			if err != nil {
+				// Increment error counter on failure
+				metrics.RedisPublishErrorsTotal.Inc()
+			}
+			return err
 		}
 		return utils.RetryWithDefault(ctx, op, tp.logger)
 	})
 
 	select {
 	case bgTradesChan <- trade:
+		// Successfully sent to Kafka channel
 	default:
 		tp.logger.Warn("bgTradesChan full, dropping trade", slog.Any("trade", trade))
 	}
