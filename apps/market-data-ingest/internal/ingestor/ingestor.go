@@ -66,8 +66,8 @@ func (ti *TradeIngestor) Start(
 				metrics.TradesReceivedTotal.Inc()
 				receivedCount++
 
-				// Only log every 1000 trades to avoid excessive logging
-				if receivedCount%1000 == 0 {
+				// Only log every 50 trades to avoid excessive logging
+				if receivedCount%50 == 0 {
 					ti.logger.Info("trade processing milestone",
 						logger.Int("trades_received", receivedCount),
 						logger.String("symbol", trade.Symbol))

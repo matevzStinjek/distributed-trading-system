@@ -95,7 +95,7 @@ func (mc *AlpacaClient) SubscribeToSymbols(ctx context.Context, tradeChan chan<-
 		}
 
 		// Log milestones for high volume
-		if mc.stats.tradesReceived%10000 == 0 {
+		if mc.stats.tradesReceived%50 == 0 {
 			mc.logStats("trade milestone reached")
 		}
 	}, symbols...)

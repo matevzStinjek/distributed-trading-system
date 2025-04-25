@@ -87,7 +87,7 @@ func (ta *TradeAggregator) Start(
 			tradesReceived++
 
 			// Log progress periodically without excessive logging
-			if tradesReceived%1000 == 0 {
+			if tradesReceived%50 == 0 {
 				ta.logger.Info("aggregation progress",
 					logger.Int("trades_received", tradesReceived),
 					logger.Int("symbols_in_map", mapSize))
@@ -160,7 +160,7 @@ func (ta *TradeAggregator) flushPrices(processedTradesChan chan<- marketdata.Tra
 
 	// Log the results
 	if sentCount > 0 {
-		ta.logger.Info("trades flushed to processing",
+		ta.logger.Debug("trades flushed to processing",
 			logger.Int("trades_sent", sentCount),
 			logger.Int("trades_dropped", droppedCount),
 			logger.Int("symbols_count", mapSize),
