@@ -34,16 +34,16 @@ Okay, here is a proposed roadmap/spec to incrementally build the market data ing
 
 * **Goal:** Implement trade debouncing per symbol and make Kafka publishing non-blocking and resilient.
 * **Tasks:**
-    * [ ] **Implement Aggregator:** Create the `TradeAggregator` struct and `Start` logic. Introduce `rawTradesChan` and `processedTradesChan`. Modify Alpaca handler (`recordTrade`) to send to `rawTradesChan`. Modify `TradeProcessor` to read from `processedTradesChan`. Add `AggregationInterval` to config.
-    * [ ] **Refactor Kafka:**
+    * [x] **Implement Aggregator:** Create the `TradeAggregator` struct and `Start` logic. Introduce `rawTradesChan` and `processedTradesChan`. Modify Alpaca handler (`recordTrade`) to send to `rawTradesChan`. Modify `TradeProcessor` to read from `processedTradesChan`. Add `AggregationInterval` to config.
+    * [x] **Refactor Kafka:**
         * Create `backgroundKafkaChan`.
         * Modify `TradeProcessor.processTrade` to send trade data *non-blockingly* to `backgroundKafkaChan` instead of calling the Kafka publish method directly.
         * Create a background worker goroutine in `main` that reads from `backgroundKafkaChan`.
         * Implement robust retry logic (e.g., using `cenkalti/backoff`) within the background worker when calling the actual Kafka publish method. Log persistent failures after retries.
-    * [ ] **Refactor Redis:**
+    * [x] **Refactor Redis:**
         * Modify `TradeProcessor.processTrade` to call Redis SET and Redis PUBLISH *synchronously* but add `context.WithTimeout` around the calls.
         * Add simple, limited retry logic (e.g., 1-2 retries on specific errors) for Redis calls within `processTrade`. Log persistent failures but *do not block* indefinitely.
-    * [ ] **Testing:**
+    * [x] **Testing:**
         * Manual testing: Verify fewer messages hit Redis/Kafka than raw trades received (aggregation). Temporarily stop Kafka broker to verify retry logic in logs and check that Redis updates continue.
         * Unit Testing: Add unit tests specifically for the `TradeAggregator`'s debouncing logic (provide input trades, check output over time).
     * [ ] **Observability:**
