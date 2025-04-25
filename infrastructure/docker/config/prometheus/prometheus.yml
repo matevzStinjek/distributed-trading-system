@@ -21,3 +21,8 @@ scrape_configs:
     static_configs:
       - targets: ['redis-exporter-pubsub:9121']
     metrics_path: /metrics
+
+  - job_name: 'market-data-ingest'
+    static_configs:
+      - targets: ['market-data-ingest:6060']
+    metrics_path: /metrics
