@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
@@ -16,10 +16,10 @@ import (
 type SaramaSyncProducer struct {
 	producer sarama.SyncProducer
 	topic    string
-	logger   *slog.Logger
+	logger   *logger.Logger
 }
 
-func NewKafkaAsyncProducer(cfg *config.Config, logger *slog.Logger) (*SaramaSyncProducer, error) {
+func NewKafkaAsyncProducer(cfg *config.Config, log *logger.Logger) (*SaramaSyncProducer, error) {
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Retry.Max = 5
@@ -34,14 +34,16 @@ func NewKafkaAsyncProducer(cfg *config.Config, logger *slog.Logger) (*SaramaSync
 	return &SaramaSyncProducer{
 		producer: producer,
 		topic:    cfg.KafkaTopicMarketData,
-		logger:   logger,
+		logger:   log,
 	}, nil
 }
 
 func (p *SaramaSyncProducer) Produce(ctx context.Context, t marketdata.Trade) (int32, int64, error) {
 	bytes, err := json.Marshal(t)
 	if err != nil {
-		p.logger.Error("could not marshal trade object for Kafka", slog.Any("error", err), slog.Any("trade", t))
+		p.logger.Error("could not marshal trade object for Kafka",
+			logger.Error(err),
+			logger.Any("trade", t))
 		return -1, -1, fmt.Errorf("failed to marshal trade: %w", err)
 	}
 
@@ -54,14 +56,16 @@ func (p *SaramaSyncProducer) Produce(ctx context.Context, t marketdata.Trade) (i
 
 	partition, offset, err := p.producer.SendMessage(message)
 	if err != nil {
-		p.logger.Error("Failed to send message to Kafka", slog.Any("error", err), slog.String("symbol", t.Symbol))
+		p.logger.Error("Failed to send message to Kafka",
+			logger.Error(err),
+			logger.String("symbol", t.Symbol))
 		return -1, -1, err
 	}
 
 	p.logger.Debug("produced message to Kafka",
-		slog.String("symbol", t.Symbol),
-		slog.Int("partition", int(partition)),
-		slog.Int64("offset", offset),
+		logger.String("symbol", t.Symbol),
+		logger.Int("partition", int(partition)),
+		logger.Int64("offset", offset),
 	)
 	return partition, offset, nil
 }

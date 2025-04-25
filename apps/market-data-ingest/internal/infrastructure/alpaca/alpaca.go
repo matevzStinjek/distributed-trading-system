@@ -2,20 +2,20 @@ package alpaca
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
 type AlpacaClient struct {
 	client  *stream.StocksClient
 	symbols []string
-	logger  *slog.Logger
+	logger  *logger.Logger
 }
 
-func NewAlpacaClient(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*AlpacaClient, error) {
+func NewAlpacaClient(ctx context.Context, cfg *config.Config, log *logger.Logger) (*AlpacaClient, error) {
 	client := stream.NewStocksClient("iex")
 	if err := client.Connect(ctx); err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func NewAlpacaClient(ctx context.Context, cfg *config.Config, logger *slog.Logge
 	return &AlpacaClient{
 		client:  client,
 		symbols: cfg.Symbols,
-		logger:  logger,
+		logger:  log,
 	}, nil
 }
 
@@ -42,7 +42,7 @@ func (mc *AlpacaClient) SubscribeToSymbols(ctx context.Context, tradeChan chan<-
 		case <-ctx.Done():
 			return
 		default:
-			mc.logger.Warn("tradeChan full, dropping trade", slog.Any("trade", trade))
+			mc.logger.Warn("tradeChan full, dropping trade", logger.Any("trade", trade))
 		}
 	}, symbols...)
 }

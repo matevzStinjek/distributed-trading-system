@@ -3,8 +3,8 @@ package producer
 import (
 	"context"
 	"errors"
-	"log/slog"
 
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -12,13 +12,13 @@ import (
 
 type KafkaWorker struct {
 	producer interfaces.KafkaProducer
-	logger   *slog.Logger
+	logger   *logger.Logger
 }
 
-func NewKafkaWorker(producer interfaces.KafkaProducer, logger *slog.Logger) *KafkaWorker {
+func NewKafkaWorker(producer interfaces.KafkaProducer, log *logger.Logger) *KafkaWorker {
 	return &KafkaWorker{
 		producer: producer,
-		logger:   logger,
+		logger:   log,
 	}
 }
 
@@ -31,7 +31,7 @@ func (kw *KafkaWorker) Start(ctx context.Context, tradeChan <-chan marketdata.Tr
 			if !ok {
 				kw.logger.Info("Trade channel closed, stopping Kafka worker")
 				if err := kw.producer.Close(); err != nil {
-					kw.logger.Error("Error closing Kafka producer", slog.Any("error", err))
+					kw.logger.Error("Error closing Kafka producer", logger.Error(err))
 				}
 				kw.logger.Info("Kafka worker finished gracefully")
 				return nil
@@ -50,23 +50,23 @@ func (kw *KafkaWorker) Start(ctx context.Context, tradeChan <-chan marketdata.Tr
 				metrics.KafkaPublishErrorsTotal.Inc()
 
 				kw.logger.Error("Failed to produce message after producer's internal retries",
-					slog.Any("error", err),
-					slog.String("symbol", trade.Symbol),
-					slog.Any("trade", trade),
+					logger.Error(err),
+					logger.String("symbol", trade.Symbol),
+					logger.Any("trade", trade),
 				)
 				continue
 			}
 
 			kw.logger.Debug("produced message to kafka",
-				slog.String("symbol", trade.Symbol),
-				slog.Int("partition", int(partition)),
-				slog.Int64("offset", offset),
+				logger.String("symbol", trade.Symbol),
+				logger.Int("partition", int(partition)),
+				logger.Int64("offset", offset),
 			)
 
 		case <-ctx.Done():
 			kw.logger.Info("context cancelled, stopping Kafka worker")
 			if err := kw.producer.Close(); err != nil {
-				kw.logger.Error("Error closing Kafka producer on context cancellation", slog.Any("error", err))
+				kw.logger.Error("Error closing Kafka producer on context cancellation", logger.Error(err))
 			}
 			kw.logger.Info("kafka worker finished due to context cancellation")
 			if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {

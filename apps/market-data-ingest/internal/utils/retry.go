@@ -2,10 +2,10 @@ package utils
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 )
 
 type RetryConfig struct {
@@ -28,7 +28,7 @@ func DefaultTradeRetryConfig() RetryConfig {
 
 type RetryableOperation func(ctx context.Context) error
 
-func RetryWithConfig(ctx context.Context, op RetryableOperation, cfg RetryConfig, logger *slog.Logger) error {
+func RetryWithConfig(ctx context.Context, op RetryableOperation, cfg RetryConfig, log *logger.Logger) error {
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = cfg.InitialInterval
 	b.MaxInterval = cfg.MaxInterval
@@ -44,11 +44,13 @@ func RetryWithConfig(ctx context.Context, op RetryableOperation, cfg RetryConfig
 		},
 		b,
 		func(err error, d time.Duration) {
-			logger.Warn("notify", slog.Any("error", err), slog.Duration("d", d))
+			log.Warn("retry operation failed",
+				logger.Error(err),
+				logger.Duration("backoff_duration", d))
 		},
 	)
 }
 
-func RetryWithDefault(ctx context.Context, op RetryableOperation, logger *slog.Logger) error {
-	return RetryWithConfig(ctx, op, DefaultTradeRetryConfig(), logger)
+func RetryWithDefault(ctx context.Context, op RetryableOperation, log *logger.Logger) error {
+	return RetryWithConfig(ctx, op, DefaultTradeRetryConfig(), log)
 }

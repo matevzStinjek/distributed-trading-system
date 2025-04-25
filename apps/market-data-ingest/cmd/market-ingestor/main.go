@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +17,7 @@ import (
 	kafkaInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/kafka"
 	redisInfra "github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/infrastructure/redis"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/ingestor"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/producer"
@@ -30,20 +29,20 @@ import (
 func run(
 	ctx context.Context,
 	getenv func(string) string,
-	logger *slog.Logger,
+	log *logger.Logger,
 ) error {
 	// --- Setup context and config ---
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	logger.Info("loading configuration")
-	cfg, err := appConfig.LoadConfig(getenv, logger)
+	log.Info("loading configuration")
+	cfg, err := appConfig.LoadConfig(getenv, log)
 	if err != nil {
 		return err
 	}
 
 	// --- Start runtime metrics collector ---
-	logger.Info("starting metrics collector")
+	log.Info("starting metrics collector")
 	stopMetricsCollector := metrics.StartRuntimeMetricsCollector(ctx, 15*time.Second)
 	defer stopMetricsCollector()
 
@@ -55,7 +54,7 @@ func run(
 	mux.Handle("/metrics", promhttp.Handler())
 
 	go func() {
-		logger.Info("Starting HTTP server for pprof and metrics", slog.String("addr", ":6060"))
+		log.Info("Starting HTTP server for pprof and metrics", logger.String("addr", ":6060"))
 		srv := &http.Server{
 			Addr:    ":6060",
 			Handler: mux,
@@ -69,35 +68,35 @@ func run(
 		}()
 
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Warn("HTTP server error", slog.Any("error", err))
+			log.Warn("HTTP server error", logger.Error(err))
 		}
 	}()
 
 	// --- Init infra clients ---
-	logger.Info("connecting to redis cache")
+	log.Info("connecting to redis cache")
 	cacheClient, err := redisInfra.NewRedisCacheClient(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("couldnt init cache client: %w", err)
 	}
 	defer cacheClient.Close()
 
-	logger.Info("connecting to redis pubsub")
+	log.Info("connecting to redis pubsub")
 	pubsubClient, err := redisInfra.NewRedisPubsubClient(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("couldnt init pubsub client: %w", err)
 	}
 	defer pubsubClient.Close()
 
-	logger.Info("producer connecting to kafka")
-	saramaProducer, err := kafkaInfra.NewKafkaAsyncProducer(cfg, logger.With("component", "sarama"))
+	log.Info("producer connecting to kafka")
+	saramaProducer, err := kafkaInfra.NewKafkaAsyncProducer(cfg, log.Component("sarama"))
 	if err != nil {
 		return err
 	}
 	defer saramaProducer.Close()
 
 	// --- Setup stocks client ---
-	logger.Info("connecting to alpaca")
-	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg, logger.With("component", "alpaca"))
+	log.Info("connecting to alpaca")
+	alpaca, err := alpacaInfra.NewAlpacaClient(ctx, cfg, log.Component("alpaca"))
 	if err != nil {
 		return err
 	}
@@ -114,10 +113,10 @@ func run(
 	metrics.KafkaChanCapacity.Set(float64(cfg.KafkaChanBuff))
 
 	// --- Setup core components
-	ingestor := ingestor.NewTradeIngestor(alpaca, cfg, logger.With("component", "ingestor"))
-	aggregator := aggregator.NewTradeAggregator(cfg, logger.With("component", "aggregator"))
-	processor := processor.NewTradeProcessor(cacheClient, pubsubClient, logger.With("component", "processor"))
-	worker := producer.NewKafkaWorker(saramaProducer, logger.With("component", "worker"))
+	ingestor := ingestor.NewTradeIngestor(alpaca, cfg, log.Component("ingestor"))
+	aggregator := aggregator.NewTradeAggregator(cfg, log.Component("aggregator"))
+	processor := processor.NewTradeProcessor(cacheClient, pubsubClient, log.Component("processor"))
+	worker := producer.NewKafkaWorker(saramaProducer, log.Component("worker"))
 
 	// --- Start channel metrics collector ---
 	go func() {
@@ -189,9 +188,9 @@ func run(
 	}
 
 	if err = g.Wait(); err != nil {
-		logger.Error("goroutine error", slog.Any("error", err))
+		log.Error("goroutine error", logger.Error(err))
 	} else {
-		logger.Info("received shutdown signal")
+		log.Info("received shutdown signal")
 	}
 
 	return err
@@ -200,40 +199,13 @@ func run(
 func main() {
 	ctx := context.Background()
 
-	logger := getLoggerFromEnv()
+	// Initialize logger
+	log := logger.New()
+	defer log.Sync()
 
-	if err := run(ctx, os.Getenv, logger); err != nil {
-		logger.Error("application error", slog.Any("error", err))
+	if err := run(ctx, os.Getenv, log); err != nil {
+		log.Error("application error", logger.Error(err))
 		os.Exit(1)
 	}
-	logger.Info("application shut down gracefully")
-}
-
-// util
-func getLoggerFromEnv() *slog.Logger {
-	var logLevel slog.Level
-	switch strings.ToLower(os.Getenv("LOG_LEVEL")) {
-	case "error":
-		logLevel = slog.LevelError
-	case "warn":
-		logLevel = slog.LevelWarn
-	case "debug":
-		logLevel = slog.LevelDebug
-	default:
-		logLevel = slog.LevelInfo
-	}
-
-	opts := &slog.HandlerOptions{
-		Level: logLevel,
-	}
-
-	var handler slog.Handler
-	switch strings.ToLower(os.Getenv("LOG_FORMAT")) {
-	case "json":
-		handler = slog.NewJSONHandler(os.Stderr, opts)
-	default:
-		handler = slog.NewTextHandler(os.Stderr, opts)
-	}
-
-	return slog.New(handler)
+	log.Info("application shut down gracefully")
 }

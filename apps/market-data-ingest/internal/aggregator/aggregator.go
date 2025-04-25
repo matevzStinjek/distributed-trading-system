@@ -2,11 +2,11 @@ package aggregator
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
@@ -15,14 +15,14 @@ type TradeAggregator struct {
 	mutex        sync.Mutex
 	latestTrades map[string]marketdata.Trade
 	cfg          *config.Config
-	logger       *slog.Logger
+	logger       *logger.Logger
 }
 
-func NewTradeAggregator(cfg *config.Config, logger *slog.Logger) *TradeAggregator {
+func NewTradeAggregator(cfg *config.Config, log *logger.Logger) *TradeAggregator {
 	return &TradeAggregator{
 		latestTrades: make(map[string]marketdata.Trade),
 		cfg:          cfg,
-		logger:       logger,
+		logger:       log,
 	}
 }
 
@@ -68,7 +68,7 @@ func (ta *TradeAggregator) Start(
 			ta.mutex.Lock()
 			ta.latestTrades[trade.Symbol] = trade
 			ta.mutex.Unlock()
-			ta.logger.Debug("price updated", slog.String("Symbol", trade.Symbol))
+			ta.logger.Debug("price updated", logger.String("Symbol", trade.Symbol))
 		case <-ticker.C:
 			ta.flushPrices(processedTradesChan)
 		case <-ctx.Done():
@@ -99,17 +99,17 @@ func (ta *TradeAggregator) flushPrices(processedTradesChan chan<- marketdata.Tra
 	// Set the aggregator map size metric immediately after clearing
 	metrics.AggregatorMapSize.Set(0)
 
-	ta.logger.Debug("flushing trades", slog.Any("trades", tradesToSend))
+	ta.logger.Debug("flushing trades", logger.Any("trades", tradesToSend))
 	for _, trade := range tradesToSend {
 		select {
 		case processedTradesChan <- trade:
 			// Increment the aggregated trades counter
 			metrics.TradesAggregatedTotal.Inc()
 		default:
-			ta.logger.Warn("processedTradesChan full, dropping trade", slog.Any("trade", trade))
+			ta.logger.Warn("processedTradesChan full, dropping trade", logger.Any("trade", trade))
 		}
 	}
 
 	// Log the number of trades aggregated
-	ta.logger.Debug("trades aggregated", slog.Int("count", mapSize))
+	ta.logger.Debug("trades aggregated", logger.Int("count", mapSize))
 }

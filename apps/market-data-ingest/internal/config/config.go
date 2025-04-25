@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 )
 
 const (
@@ -35,14 +36,14 @@ type Config struct {
 	KafkaChanBuff      int // 1k-10k
 }
 
-func LoadConfig(getenv func(string) string, logger *slog.Logger) (*Config, error) {
+func LoadConfig(getenv func(string) string, log *logger.Logger) (*Config, error) {
 	aggregatorIntervalMsStr := getenv("AGGREGATOR_INTERVAL_MS")
 	aggregatorIntervalMs, err := strconv.Atoi(aggregatorIntervalMsStr)
 	if err != nil || aggregatorIntervalMs < AGG_INTERVAL_MS_MIN {
-		logger.Warn("AGGREGATOR_INTERVAL_MS invalid, defaulting",
-			slog.String("value", aggregatorIntervalMsStr),
-			slog.Int("min_ms", AGG_INTERVAL_MS_MIN),
-			slog.Int("default_ms", AGG_INTERVAL_MS_DEFAULT))
+		log.Warn("AGGREGATOR_INTERVAL_MS invalid, defaulting",
+			logger.String("value", aggregatorIntervalMsStr),
+			logger.Int("min_ms", AGG_INTERVAL_MS_MIN),
+			logger.Int("default_ms", AGG_INTERVAL_MS_DEFAULT))
 		aggregatorIntervalMs = AGG_INTERVAL_MS_DEFAULT
 	}
 

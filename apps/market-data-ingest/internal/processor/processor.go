@@ -3,10 +3,10 @@ package processor
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/utils"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
@@ -17,19 +17,19 @@ import (
 type TradeProcessor struct {
 	cacheClient  interfaces.CacheClient
 	pubsubClient interfaces.PubsubClient
-	logger       *slog.Logger
+	logger       *logger.Logger
 	wg           *sync.WaitGroup
 }
 
 func NewTradeProcessor(
 	cacheClient interfaces.CacheClient,
 	pubsubClient interfaces.PubsubClient,
-	logger *slog.Logger,
+	log *logger.Logger,
 ) *TradeProcessor {
 	return &TradeProcessor{
 		cacheClient:  cacheClient,
 		pubsubClient: pubsubClient,
-		logger:       logger,
+		logger:       log,
 		wg:           &sync.WaitGroup{},
 	}
 }
@@ -63,7 +63,7 @@ func (tp *TradeProcessor) Start(
 
 				err := tp.processTrade(ctx, trade, bgTradesChan)
 				if err != nil {
-					tp.logger.Error("error processing trade", slog.Any("error", err))
+					tp.logger.Error("error processing trade", logger.Error(err))
 				} else {
 					// Increment processed trades counter on success
 					metrics.TradesProcessedTotal.Inc()
@@ -129,15 +129,15 @@ func (tp *TradeProcessor) processTrade(ctx context.Context, trade marketdata.Tra
 	case bgTradesChan <- trade:
 		// Successfully sent to Kafka channel
 	default:
-		tp.logger.Warn("bgTradesChan full, dropping trade", slog.Any("trade", trade))
+		tp.logger.Warn("bgTradesChan full, dropping trade", logger.Any("trade", trade))
 	}
 
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("trade processing encountered an error: %w", err)
 	}
 	tp.logger.Debug("Published price updates to redis",
-		slog.String("Symbol", trade.Symbol),
-		slog.Int("Price", int(trade.Price)))
+		logger.String("Symbol", trade.Symbol),
+		logger.Int("Price", int(trade.Price)))
 
 	return nil
 }

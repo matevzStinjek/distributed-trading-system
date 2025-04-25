@@ -2,9 +2,9 @@ package ingestor
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -13,13 +13,13 @@ import (
 type TradeIngestor struct {
 	client interfaces.MarketDataClient
 	cfg    *config.Config
-	logger *slog.Logger
+	logger *logger.Logger
 }
 
 func NewTradeIngestor(
 	client interfaces.MarketDataClient,
 	cfg *config.Config,
-	logger *slog.Logger,
+	logger *logger.Logger,
 ) *TradeIngestor {
 	return &TradeIngestor{
 		client: client,
