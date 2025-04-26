@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -38,3 +39,6 @@ func (r *RedisPubsubClient) Publish(ctx context.Context, channel string, value a
 func (r *RedisPubsubClient) Close() error {
 	return r.client.Close()
 }
+
+// Verify interface
+var _ interfaces.PubsubClient = (*RedisPubsubClient)(nil)

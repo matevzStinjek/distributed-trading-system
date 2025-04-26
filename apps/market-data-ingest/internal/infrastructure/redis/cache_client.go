@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -39,3 +40,6 @@ func (r *RedisCacheClient) Set(ctx context.Context, key string, value any, exp t
 func (r *RedisCacheClient) Close() error {
 	return r.client.Close()
 }
+
+// Verify interface
+var _ interfaces.CacheClient = (*RedisCacheClient)(nil)
