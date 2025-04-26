@@ -38,6 +38,12 @@ var (
 		Help: "Total number of trades received from the source",
 	})
 
+	// Mock ingestor metrics
+	MockTradesReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "app_mock_trades_received_total",
+		Help: "Total number of mock trades received from the generator",
+	})
+
 	// Aggregator metrics
 	TradesAggregatedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "app_trades_aggregated_total",

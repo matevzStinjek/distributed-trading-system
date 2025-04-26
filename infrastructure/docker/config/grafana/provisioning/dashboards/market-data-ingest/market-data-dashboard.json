@@ -520,9 +520,20 @@
           },
           "editorMode": "code",
           "expr": "rate(app_trades_received_total{job=\"market-data-ingest\"}[1m])",
-          "legendFormat": "Received",
+          "legendFormat": "Received (Real)",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(app_mock_trades_received_total{job=\"market-data-ingest\"}[1m])",
+          "legendFormat": "Received (Mock)",
+          "range": true,
+          "refId": "D"
         },
         {
           "datasource": {
@@ -696,7 +707,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -803,7 +815,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -1405,6 +1418,44 @@
         }
       ],
       "title": "Kafka Worker Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "description": "Logs from the mock data generator",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 68
+      },
+      "id": 27,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "P8E80F9AEF21F6940"
+          },
+          "editorMode": "builder",
+          "expr": "{container=~\".*market-data-ingest.*\"} |~ \"component=mock-generator\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Mock Generator Logs",
       "type": "logs"
     },
     {

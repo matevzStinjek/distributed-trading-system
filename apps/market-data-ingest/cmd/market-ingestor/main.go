@@ -19,6 +19,7 @@ import (
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/ingestor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/metrics"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/mockdata"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/processor"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/producer"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
@@ -211,23 +212,22 @@ func run(
 		return nil
 	})
 
-	// For testing and development only - mock trades
+	// --- For testing and development only - mock trades generator ---
 	if getenv("ENV") == "development" || getenv("MOCK_TRADES") == "true" {
-		log.Info("injecting mock trades for testing")
-		rawTradeChan <- marketdata.Trade{
-			ID:        1,
-			Symbol:    "MSFT",
-			Price:     1,
-			Size:      1,
-			Timestamp: time.Now(),
-		}
-		rawTradeChan <- marketdata.Trade{
-			ID:        2,
-			Symbol:    "MSFT",
-			Price:     2,
-			Size:      1,
-			Timestamp: time.Now(),
-		}
+		log.Info("initializing mock data generator")
+		mockConfig := mockdata.DefaultConfig()
+
+		generator := mockdata.NewGenerator(mockConfig, log.Component("mock-generator"))
+
+		g.Go(func() error {
+			log.Info("starting mock data generator")
+			err := generator.Start(ctx, rawTradeChan)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				return fmt.Errorf("mock generator error: %w", err)
+			}
+			log.Info("mock data generator stopped")
+			return nil
+		})
 	}
 
 	// Wait for processing to complete or context to be canceled
