@@ -7,6 +7,7 @@ import (
 	"github.com/alpacahq/alpaca-trade-api-go/v3/marketdata/stream"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/config"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/internal/logger"
+	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/interfaces"
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
@@ -159,3 +160,6 @@ func (mc *AlpacaClient) logStats(event string) {
 		mc.stats.lastLogTime = now
 	}
 }
+
+// Verify interface
+var _ interfaces.MarketDataClient = (*AlpacaClient)(nil)

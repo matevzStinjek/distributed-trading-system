@@ -106,5 +106,5 @@ func (p *SaramaSyncProducer) Close() error {
 	return err
 }
 
-// interface check
+// Verify interface
 var _ interfaces.KafkaProducer = (*SaramaSyncProducer)(nil)
