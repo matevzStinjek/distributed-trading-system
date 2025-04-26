@@ -11,18 +11,30 @@ import (
 	"github.com/matevzStinjek/distributed-trading-system/market-data-ingest/pkg/marketdata"
 )
 
+type TickerFactory func(d time.Duration) *time.Ticker
+
+func DefaultTickerFactory(d time.Duration) *time.Ticker {
+	return time.NewTicker(d)
+}
+
 type TradeAggregator struct {
 	mutex        sync.Mutex
 	latestTrades map[string]marketdata.Trade
 	cfg          *config.Config
 	logger       *logger.Logger
+	newTicker    TickerFactory
 }
 
 func NewTradeAggregator(cfg *config.Config, log *logger.Logger) *TradeAggregator {
+	return NewTradeAggregatorWithTicker(cfg, log, DefaultTickerFactory)
+}
+
+func NewTradeAggregatorWithTicker(cfg *config.Config, log *logger.Logger, tickerFactory TickerFactory) *TradeAggregator {
 	return &TradeAggregator{
 		latestTrades: make(map[string]marketdata.Trade),
 		cfg:          cfg,
 		logger:       log,
+		newTicker:    tickerFactory,
 	}
 }
 
@@ -41,7 +53,7 @@ func (ta *TradeAggregator) Start(
 		close(processedTradesChan)
 	}()
 
-	ticker := time.NewTicker(interval)
+	ticker := ta.newTicker(interval)
 	defer ticker.Stop()
 
 	ta.logger.Debug("initializing aggregator map metric collector")
